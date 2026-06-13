@@ -1,0 +1,68 @@
+name: Build and Deploy Maven Site to GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '**/src/site/**'
+      - '**/*.adoc'
+      - '**/*.md'
+  workflow_run:
+    workflows: ["Build any branch", "Record Dependabot update in changes.xml"]
+    types: [completed]
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  MAVEN_COMMAND: ./mvnw
+  MAVEN_CLI_COMMON: "-e -B"
+
+jobs:
+  build-site:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v6
+    - uses: ./.github/actions/jdk-setup
+    # Tests run (no -DskipTests) so JaCoCo writes target/jacoco.exec and target/jacoco-it.exec;
+    # the site step renders the unit and integration coverage reports from them.
+    - name: Build project (runs tests for coverage data)
+      run: ${{ env.MAVEN_COMMAND }} ${{ env.MAVEN_CLI_COMMON }} clean install
+    # site:stage assembles the per-module sites of this multi-module build into
+    # target/staging/, using the <distributionManagement><site> urls in the poms.
+    - name: Generate and stage Maven site
+      run: ${{ env.MAVEN_COMMAND }} ${{ env.MAVEN_CLI_COMMON }} site site:stage -Dproject.build.outputTimestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    - name: Upload Pages artifact
+      if: >-
+        github.event_name == 'workflow_dispatch' ||
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_run'
+      uses: actions/upload-pages-artifact@v5
+      with:
+        path: target/staging/
+
+  deploy:
+    needs: build-site
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v5
