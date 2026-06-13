@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.database-audits</groupId>
+    <artifactId>database-audits-parent</artifactId>
+    <version>1.0.0</version>
+    <relativePath>../parent/pom.xml</relativePath>
+  </parent>
+
+  <artifactId>database-audits-core</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>Database Audits Core</name>
+  <description>
+    Database audits to validate configuration and help performance.
+    Plain injectable classes with no dependency-injection-framework dependencies.
+  </description>
+
+  <developers>
+    <developer>
+      <id>jeffjensen</id>
+      <name>Jeff Jensen</name>
+      <email>jjensen@apache.org</email>
+    </developer>
+  </developers>
+
+  <ciManagement>
+    <system>GitHub Actions</system>
+    <url>https://github.com/database-audits/core/actions</url>
+  </ciManagement>
+  <issueManagement>
+    <system>GitHub Issues</system>
+    <url>https://github.com/database-audits/core/issues</url>
+  </issueManagement>
+  <scm>
+    <connection>scm:git:https://github.com/database-audits/core.git</connection>
+    <developerConnection>scm:git:https://github.com/database-audits/core.git</developerConnection>
+    <url>https://github.com/database-audits/core</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <dependencies>
+    <!-- TEST DEPENDENCIES -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- In-memory database for end-to-end catalog-audit tests -->
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Real-database integration tests: PostgreSQL/MySQL/MariaDB containers (singleton pattern, see DatabaseContainers) -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-mysql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-mariadb</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mariadb.jdbc</groupId>
+      <artifactId>mariadb-java-client</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- SLF4J binding so Testcontainers startup diagnostics reach the redirected test logs -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- PROD DEPENDENCIES -->
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.persistence</groupId>
+      <artifactId>jakarta.persistence-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.hibernate.orm</groupId>
+      <artifactId>hibernate-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jspecify</groupId>
+      <artifactId>jspecify</artifactId>
+    </dependency>
+  </dependencies>
+
+  <distributionManagement>
+    <site>
+      <id>github-pages</id>
+      <url>https://database-audits.github.io/core</url>
+    </site>
+  </distributionManagement>
+</project>
