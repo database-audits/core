@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site xmlns="http://maven.apache.org/SITE/2.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/SITE/2.0.0 https://maven.apache.org/xsd/site-2.0.0.xsd">
+
+  <skin>
+    <groupId>org.apache.maven.skins</groupId>
+    <artifactId>maven-fluido-skin</artifactId>
+    <version>2.1.0</version>
+  </skin>
+
+  <bannerLeft name="Database Audits" href="https://database-audits.github.io" target="_blank">
+  </bannerLeft>
+
+  <bannerRight href="https://github.com/database-audits/core" target="_blank">
+    <image src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="48px" height="48px"/>
+  </bannerRight>
+
+  <body>
+    <links>
+      <item name="main" href="https://github.com/database-audits/core/actions/workflows/build-any-branch.yml?query=branch%3Amain" target="_blank">
+        <image src="https://github.com/database-audits/core/actions/workflows/build-any-branch.yml/badge.svg?branch=main"/>
+      </item>
+    </links>
+
+    <breadcrumbs>
+      <item name="Docs Home" href="index.html"/>
+    </breadcrumbs>
+
+    <menu name="Using">
+      <item name="Usage"              href="usage.html" />
+    </menu>
+    <menu name="Developing">
+      <item name="Building"           href="building.html" />
+      <item name="Releasing"          href="releasing.html" />
+    </menu>
+    <menu name="Links">
+      <item name="Boot Integration"   href="https://database-audits.github.io/spring-boot" />
+    </menu>
+
+    <menu ref="reports"/>
+  </body>
+</site>
