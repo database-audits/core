@@ -1,0 +1,92 @@
+= Architecture
+
+== Design principles
+
+`database-audits-core` carries no dependency-injection annotations. Every class takes its dependencies as
+constructor arguments, so any container (Spring, Guice, plain `new`) can wire it. The Spring integration lives
+in `database-audits-spring-boot`, which wires everything with explicit `@Bean` methods.
+
+**Audits return findings; callers assert.** Every `audit()` method returns a `List<String>` of human-readable
+violation messages — empty when clean — and the calling test makes the assertions (typically with AssertJ). This
+means AssertJ is test-scoped only, never a compile or runtime dependency of the library.
+
+**Never pass vacuously.** A run that could not actually check anything throws rather than returning a
+clean-looking empty list. Runtime audits throw `IllegalStateException` on an empty SQL capture and on a
+wholly-unexplainable run; plan audits throw `UnsupportedOperationException` on a non-PostgreSQL platform.
+Both errors indicate a configuration problem to fix, not a clean schema.
+
+== `DatabasePlatform` — the hub
+
+`DatabasePlatform` is an enum of the four supported products: `H2`, `MARIADB`, `MYSQL`, `POSTGRESQL`. Every
+place in the library that needs platform-specific SQL holds an exhaustive `switch` with *no `default` branch*:
+
+[source,java]
+----
+return switch (platform) {
+case POSTGRESQL -> POSTGRESQL_FK_SQL;
+case MYSQL, MARIADB -> MYSQL_FK_SQL;
+case H2 -> H2_FK_SQL;
+};
+----
+
+Adding a new enum value makes the compiler flag every SQL site that needs updating — a compile-time guarantee of
+completeness. Detect the platform once at startup with `DatabasePlatform.fromDataSource(DataSource)`, which
+opens one connection, reads `DatabaseMetaData.getDatabaseProductName()`, and closes the connection.
+
+== Catalog family (all platforms)
+
+Five audits that query database metadata — `information_schema` or `pg_catalog` — over plain JDBC and compare
+it against rules. Results are deterministic regardless of test data; no SQL execution is analyzed.
+
+**`CatalogQueries`** is the minimal JDBC-to-list-of-maps layer. It prepares one parameterized statement per call
+and returns rows as `Map<String, Object>` with case-insensitive key lookup — necessary because PostgreSQL
+lower-cases unquoted aliases while H2 upper-cases them.
+
+**`IndexCatalog`** reads every index of a schema as `IndexDefinition` records (key columns in order, excluding
+`INCLUDE` columns and full-text/spatial indexes). It is the shared building block for `ForeignKeyIndexAudit`
+(leading-prefix coverage) and `RedundantIndexAudit` (prefix containment).
+
+**`IndexDefinition`** is a value record holding a table name, index name, ordered column list, and flags for
+`unique`, `primary`, `partial`, and expression/prefix columns.
+
+== Runtime family (PostgreSQL 16+ only)
+
+Four audits that inspect the *real SQL Hibernate executed* during the test run. Three use `EXPLAIN`; one
+token-scans for missing `WHERE` clauses.
+
+=== SQL capture
+
+**`SqlCapturingStatementInspector`** implements Hibernate's `StatementInspector`, recording every statement with
+JDBC `?` placeholders (no bind values) — exactly what `EXPLAIN (GENERIC_PLAN)` needs. The *same instance* must
+be both Hibernate's inspector and the one the runtime audits read; see
+link:usage.html#runtime-audits-postgresql-16-only[Usage — Runtime audits] for wiring.
+
+=== Query plan analysis
+
+**`QueryPlanExplainer`** runs `EXPLAIN (GENERIC_PLAN, FORMAT JSON)` with chosen planner-penalty settings (for
+example `SET enable_seqscan = off`). A surviving node of the penalized kind proves no index can serve that
+access path, without needing real bind values or test data. Requires `preferQueryMode=simple` on the JDBC URL —
+generic-plan EXPLAIN only works over PostgreSQL's simple query protocol.
+
+=== Template method
+
+**`CapturedSqlPlanAuditTemplate`** is the base class for the three EXPLAIN-based audits. The fixed algorithm
+de-duplicates captured SQL by normalized statement shape, plans each candidate with penalties applied, and
+collects offending nodes. Both vacuous-run guards — empty capture and wholly-unexplainable run — live here.
+Subclasses supply which statements to EXPLAIN, which GUCs to penalize, and how to recognize an offending node.
+
+**`UnconditionalMutationAudit`** is runtime but uses no EXPLAIN — it scans the capture for `UPDATE`/`DELETE`
+without `WHERE`.
+
+== JPA family
+
+**`SchemaEntityValidationAudit`** takes an `EntityManagerFactory`. When `hibernate.hbm2ddl.auto=validate` is
+active, Hibernate validates every mapped entity at factory-build time; if the factory was built, validation
+passed. The audit checks the factory is non-null as a formality confirming the paired test enabled validation.
+
+== Exclusions
+
+Every audit accepts exclusion parameters so consumers suppress known-intentional violations rather than making
+the audit guess. Exclusion types vary by audit — table names, constraint names, `table.column` identifiers,
+index names, relation names, SQL fragments, or normalized statement strings. See
+link:audits.html[Audits] for each audit's exclusion type.

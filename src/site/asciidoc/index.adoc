@@ -1,0 +1,47 @@
+= Database Audits Core
+
+`database-audits-core` is a small Java library of database audits — checks you run from your own tests to catch
+schema and configuration mistakes before they reach production: missing primary keys, unindexed foreign keys,
+nullable FK columns, type mismatches, redundant indexes, full-table mutations, and JPA mapping drift. Each audit
+is a plain class with constructor injection and no dependency-injection-framework dependencies, so it works with
+Spring, any other container, or no container at all.
+
+== Dependency
+
+[source,xml]
+----
+<dependency>
+  <groupId>io.github.database-audits</groupId>
+  <artifactId>database-audits-core</artifactId>
+  <version>VERSION</version>
+  <scope>test</scope>
+</dependency>
+----
+
+== Audit families
+
+|===
+| Family | Count | Platforms | What it checks
+
+| link:audits.html#catalog[Catalog]
+| 5
+| All (H2, MySQL, MariaDB, PostgreSQL)
+| Schema metadata: primary keys, FK indexes, FK nullability, FK type mismatches, redundant indexes
+
+| link:audits.html#runtime[Runtime]
+| 4
+| PostgreSQL 16+ only
+| Real SQL the application executed: WHERE / ORDER BY / JOIN index coverage, unconditional mutations
+
+| link:audits.html#jpa[JPA]
+| 1
+| All
+| Hibernate entity-to-schema mapping validation
+|===
+
+For Spring Boot, import `DatabaseAuditTestConfiguration` from the
+link:https://database-audits.github.io/spring-boot[spring-boot module] — it wires every audit and its
+collaborators automatically.
+
+For direct construction see link:usage.html[Usage], the full audit reference is in link:audits.html[Audits],
+and the design is explained in link:architecture.html[Architecture].

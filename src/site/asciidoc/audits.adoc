@@ -1,0 +1,251 @@
+= Audits
+
+Ten audits organized into three families. Catalog and JPA audits run on every supported database platform;
+runtime audits are PostgreSQL 16+ only.
+
+Every `audit()` call returns a `List<String>` of human-readable violation messages — empty when clean.
+
+[[catalog]]
+== Catalog audits
+
+Catalog audits read database metadata (information schema / `pg_catalog`) over plain JDBC. They are deterministic
+regardless of test data. All take a schema name and an exclusion set.
+
+=== PrimaryKeyPresenceAudit
+
+Every base table in the schema must have a `PRIMARY KEY`. Pass table names to skip as `excludedTables`. A
+constant `LIQUIBASE_BOOKKEEPING_TABLES` is provided for the common case of excluding Liquibase's own tables.
+
+[source,java]
+----
+List<String> findings = new PrimaryKeyPresenceAudit(queries, platform)
+        .audit("my_schema", PrimaryKeyPresenceAudit.LIQUIBASE_BOOKKEEPING_TABLES);
+----
+
+*Finding format:* the table name — for example `orders`.
+
+*Fix:* Add a `PRIMARY KEY` to the table, or pass its name as an exclusion.
+
+=== ForeignKeyIndexAudit
+
+Every foreign key constraint must be backed by an index whose leading columns are the FK columns. An unindexed
+FK causes slow child→parent lookups and lock-heavy parent `DELETE`/`UPDATE` (sequential child scan under a
+strong lock). Pass constraint names to skip as `excludedConstraints`.
+
+NOTE: PostgreSQL and H2 do not auto-create an index for a foreign key. MySQL/MariaDB InnoDB does, so this
+audit usually passes there, though it still catches an index dropped after the fact on MariaDB (permitted while
+`foreign_key_checks` is suspended; MySQL refuses such drops outright).
+
+[source,java]
+----
+List<String> findings = new ForeignKeyIndexAudit(queries, indexes, platform)
+        .audit("my_schema", Set.of("fk_legacy_unindexed_constraint"));
+----
+
+*Finding format:*
+
+----
+orders.fk_orders_customer  ->  FOREIGN KEY (customer_id) REFERENCES customers
+----
+
+*Fix:* Add an index whose leading column(s) are the FK column(s), or exclude the constraint name.
+
+=== ForeignKeyNotNullAudit
+
+Every foreign key column should be `NOT NULL` unless the relationship is genuinely optional. Pass column
+identifiers in `table.column` format to skip as `excludedColumns`. Composite FKs are reported per column.
+
+[source,java]
+----
+List<String> findings = new ForeignKeyNotNullAudit(queries, platform)
+        .audit("my_schema", Set.of("orders.optional_partner_id"));
+----
+
+*Finding format:*
+
+----
+orders.customer_id (fk_orders_customer) is nullable
+----
+
+*Fix:* Make the column `NOT NULL`, or exclude it if the optional relationship is intentional.
+
+=== ForeignKeyTypeMatchAudit
+
+Every foreign key column must have exactly the same declared type as the column it references. A type mismatch —
+an `integer` referencing a `bigint`, differing `varchar` lengths — forces implicit conversions in joins and FK
+checks, can defeat index use, and caps the child at the narrower range. Pass column identifiers in `table.column`
+format to skip as `excludedColumns`.
+
+[source,java]
+----
+List<String> findings = new ForeignKeyTypeMatchAudit(queries, platform)
+        .audit("my_schema", Set.of());
+----
+
+*Finding format:*
+
+----
+orders.customer_id is integer but references customers.id which is bigint (fk_orders_customer)
+----
+
+*Fix:* Align the FK column's type with its referenced column's, or exclude the column if the mismatch is
+deliberate.
+
+=== RedundantIndexAudit
+
+No non-unique index should be made redundant by another index whose leading columns are identical. A redundant
+index wastes write throughput and storage — the wider index already serves the same lookups. Ignores primary key,
+unique, partial, and expression indexes. Pass index names to skip as `excludedIndexes`.
+
+[source,java]
+----
+List<String> findings = new RedundantIndexAudit(indexes)
+        .audit("my_schema", Set.of("idx_orders_customer_legacy"));
+----
+
+*Finding format:*
+
+----
+orders.idx_orders_customer is covered by idx_orders_customer_status
+----
+
+*Fix:* Drop the narrower index (the wider one already serves its lookups), or exclude the index name if the
+redundancy is intentional (for example, a collation-specific index).
+
+[[runtime]]
+== Runtime audits
+
+Runtime audits intercept every SQL statement Hibernate executes and analyze it via `EXPLAIN (GENERIC_PLAN,
+FORMAT JSON)`. They are *PostgreSQL 16+ only* and require `preferQueryMode=simple` on the JDBC URL. They throw
+`UnsupportedOperationException` on any other platform and `IllegalStateException` when the SQL capture is empty.
+
+See link:usage.html#runtime-audits-postgresql-16-only[Usage — Runtime audits] for wiring
+`SqlCapturingStatementInspector` and ordering the workload.
+
+=== WhereClauseIndexAudit
+
+Every `SELECT`, `UPDATE`, or `DELETE` with a `WHERE` clause should have at least one indexed predicate
+covering the access path on the filtered table. Under `SET enable_seqscan = off`, a `Seq Scan` that still
+carries a `Filter` proves no index at all can serve that access — a full table scan is the only option.
+A `Filter` on top of an existing `Index Scan` (for example, `a` is indexed but `b` is not in
+`WHERE a = ? AND b = ?`) is not flagged, because the scan itself is already index-driven.
+Pass table names to `excludedRelations` to skip a whole table; pass SQL substrings to `excludedSqlFragments`
+to skip specific statements.
+
+[source,java]
+----
+List<String> findings = new WhereClauseIndexAudit(explainer, inspector)
+        .audit(
+            Set.of("audit_log"),                              // skip this table
+            List.of("where status = 'LEGACY'")               // skip statements containing this
+        );
+----
+
+*Finding format:*
+
+----
+Seq Scan on 'orders' filtering (status = $1)
+      select o1_0.id, o1_0.status from orders o1_0 where o1_0.status = ?
+----
+
+*Fix:* Add an index on the filtered column(s), or exclude the relation or SQL fragment.
+
+=== OrderByIndexAudit
+
+Every `ORDER BY` should be servable by an index (no explicit sorts). Under `SET enable_sort = off`, a `Sort`
+or `Incremental Sort` that survives means no index can provide the ordering. Advisory — sorts over aggregates,
+joins, or small result sets are often legitimate and meant to be excluded. The primary target is sorted
+pagination over large tables (`ORDER BY … LIMIT`).
+
+[source,java]
+----
+List<String> findings = new OrderByIndexAudit(explainer, inspector)
+        .audit(
+            Set.of("lookup_values"),                          // skip this small static table
+            List.of("group by")                              // skip aggregate queries
+        );
+----
+
+*Finding format:*
+
+----
+Sort under 'orders' by (created_at DESC)
+      select o1_0.id, o1_0.created_at from orders o1_0 order by o1_0.created_at desc
+----
+
+*Fix:* Add an index matching the `ORDER BY` columns (including ASC/DESC and NULLS order), or exclude the
+relation or SQL fragment.
+
+=== JoinIndexAudit
+
+Every `JOIN` should be servable through an index on the join key of at least one side. Under
+`SET enable_seqscan = off, enable_hashjoin = off, enable_mergejoin = off`, the planner is steered toward a
+Nested Loop with an inner Index Scan — the shape an indexed join key enables. A Hash Join, Merge Join, or
+Nested Loop with an inner Seq Scan that survives the penalty proves no index can serve the join. Advisory —
+`FULL OUTER JOIN`s, joins on small static tables, and joins on expressions are legitimate exclusions.
+
+[source,java]
+----
+List<String> findings = new JoinIndexAudit(explainer, inspector)
+        .audit(
+            Set.of("lookup_values"),                         // skip this small static table
+            List.of()
+        );
+----
+
+*Finding format:* one of three shapes depending on which plan survived the penalties:
+
+----
+Hash Join on 'orders' joining (order_items.order_id = orders.id)
+      select oi1_0.id, o1_0.status from order_items oi1_0 join orders o1_0 on oi1_0.order_id = o1_0.id
+
+Merge Join on 'orders' joining (order_items.order_id = orders.id)
+      select oi1_0.id, o1_0.status from order_items oi1_0 join orders o1_0 on oi1_0.order_id = o1_0.id
+
+Nested Loop with inner Seq Scan on 'orders' joining (order_items.order_id = orders.id)
+      select oi1_0.id, o1_0.status from order_items oi1_0 join orders o1_0 on oi1_0.order_id = o1_0.id
+----
+
+*Fix:* Add an index on the joined column(s), or exclude the relation or SQL fragment.
+
+=== UnconditionalMutationAudit
+
+No `UPDATE` or `DELETE` may run without a `WHERE` clause. An unconditional mutation rewrites or wipes an entire
+table — an accidental derived-delete, a `@Modifying @Query` missing its predicate, or a full-table fixture
+reset executed against production data. Detection is a token scan of the captured SQL — no EXPLAIN needed.
+Pass normalized statement strings to `excludedStatements` to skip deliberate full-table statements.
+
+[source,java]
+----
+List<String> findings = new UnconditionalMutationAudit(inspector)
+        .audit(Set.of("delete from schema_version"));
+----
+
+*Finding format:* the normalized statement — for example:
+
+----
+delete from session_tokens
+----
+
+*Fix:* Add a `WHERE` clause to the statement, or pass the normalized statement text as an exclusion.
+
+[[jpa]]
+== JPA audit
+
+=== SchemaEntityValidationAudit
+
+The JPA entity mappings must match the live database schema. The real check is Hibernate startup validation
+(`hibernate.hbm2ddl.auto=validate` / `spring.jpa.hibernate.ddl-auto=validate`): Hibernate validates every
+mapped entity against its table and columns when the `EntityManagerFactory` is built — if the factory was built,
+validation passed. This audit confirms the factory is non-null as a formality; reaching it means validation
+succeeded. The paired test *must* enable validation for the assertion to mean anything.
+
+[source,java]
+----
+List<String> findings = new SchemaEntityValidationAudit(entityManagerFactory).audit();
+----
+
+*Finding:* `EntityManagerFactory should have been built under ddl-auto=validate.` (if the factory is null).
+
+*Fix:* Enable `hibernate.hbm2ddl.auto=validate` when building the `EntityManagerFactory`, and ensure entity
+mappings match the Liquibase-built schema (whichever drifted).

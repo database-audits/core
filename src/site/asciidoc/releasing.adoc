@@ -1,0 +1,59 @@
+= Releasing
+
+== Snapshot deployments
+
+Every successful build on the `main` branch automatically deploys a `-SNAPSHOT` artifact to Maven Central via
+`deploy-snapshot.yml`. No manual action is needed.
+
+== Release deployments
+
+Releases use `maven-release-plugin`. The plugin tags the repository, advances the POM versions, and triggers a
+GitHub Actions workflow that publishes to Maven Central.
+
+=== Step 1 — prepare
+
+Run locally from the repository root. The plugin will prompt for the release version and next development
+version, or accept them as arguments:
+
+----
+.\mvnw.cmd release:prepare
+----
+
+Or non-interactively:
+
+----
+.\mvnw.cmd release:prepare -DreleaseVersion=1.2.0 -DdevelopmentVersion=1.3.0-SNAPSHOT -Dtag=v1.2.0
+----
+
+This creates two commits (bump to release version, bump to next SNAPSHOT) and a `v1.2.0` tag.
+
+=== Step 2 — push the tag
+
+----
+git push --tags
+----
+
+Pushing the `v*` tag triggers `release.yml` in GitHub Actions, which runs `.\mvnw.cmd deploy -Prelease`. The
+`release` profile activates:
+
+* GPG signing of all artifacts
+* Attachment of sources and javadoc jars
+* Deployment to Maven Central
+
+The release workflow does *not* require Docker — integration tests are not re-run during the release build.
+
+=== Step 3 — verify on Maven Central
+
+After the workflow completes, confirm the artifact is available at
+`https://central.sonatype.com/artifact/io.github.database-audits/database-audits-core`.
+
+== Site deployment
+
+`publish-docs.yml` rebuilds and redeploys the Maven site to GitHub Pages. It triggers:
+
+* On any push to `main` that touches `src/site/**`, `*.adoc`, or `*.md`
+* On successful completion of the main build workflow (`build-any-branch.yml`) on `main`
+* Manually via workflow dispatch
+
+The workflow runs `clean verify` to generate JaCoCo coverage data, then `site site:stage` to build and stage
+the site, and deploys the result to the `github-pages` GitHub Pages environment.

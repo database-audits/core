@@ -1,0 +1,105 @@
+= Usage
+
+This page covers direct construction of audits. For Spring Boot, import `DatabaseAuditTestConfiguration` from
+the link:https://database-audits.github.io/spring-boot[spring-boot module] — it wires every audit and
+collaborator automatically.
+
+== Quick start
+
+[source,java]
+----
+DatabasePlatform platform = DatabasePlatform.fromDataSource(dataSource);
+CatalogQueries queries = new CatalogQueries(dataSource);
+IndexCatalog indexes = new IndexCatalog(queries, platform);
+
+assertThat(new PrimaryKeyPresenceAudit(queries, platform)
+        .audit("my_schema", PrimaryKeyPresenceAudit.LIQUIBASE_BOOKKEEPING_TABLES))
+        .as("Every table should have a primary key.")
+        .isEmpty();
+
+assertThat(new ForeignKeyIndexAudit(queries, indexes, platform)
+        .audit("my_schema", Set.of()))
+        .as("Every foreign key should be backed by an index.")
+        .isEmpty();
+----
+
+Each `audit()` returns `List<String>` — empty when clean, otherwise human-readable violation messages.
+`DatabasePlatform` supports `H2`, `MARIADB`, `MYSQL`, and `POSTGRESQL`. See
+link:audits.html#catalog[Audits — Catalog] for all catalog audits and their exclusion parameters.
+
+== Runtime audits (PostgreSQL 16+ only)
+
+Runtime audits intercept the SQL Hibernate executes and analyze it via `EXPLAIN (GENERIC_PLAN, FORMAT JSON)`.
+They are PostgreSQL-only and fail immediately on any other platform. An `IllegalStateException` from a runtime
+audit indicates a configuration problem — empty capture or missing `preferQueryMode=simple` — not a schema
+violation.
+
+=== JDBC URL requirement
+
+Generic-plan EXPLAIN only works over PostgreSQL's *simple query protocol*. Append `preferQueryMode=simple` to
+your JDBC URL:
+
+----
+jdbc:postgresql://localhost:5432/mydb?currentSchema=my_schema&preferQueryMode=simple
+----
+
+Without it every parameterized statement is skipped and the vacuous-run guard throws `IllegalStateException`.
+
+=== Wiring the SQL capturer
+
+Create one `SqlCapturingStatementInspector` and pass the *object* — not a class name — to Hibernate as the
+`StatementInspector`. The same instance goes to each runtime audit.
+
+[source,java]
+----
+SqlCapturingStatementInspector inspector = new SqlCapturingStatementInspector();
+
+Map<String, Object> settings = new HashMap<>();
+settings.put(JdbcSettings.STATEMENT_INSPECTOR, inspector); // the object, not a class name
+// ... other Hibernate settings ...
+
+SessionFactory sessionFactory = new Configuration()
+        .addProperties(settings)
+        .buildSessionFactory();
+----
+
+Registering by class name causes Hibernate to instantiate a *separate* capturer the audits never read.
+
+For per-test isolation, call `inspector.clear()` from `@BeforeEach` — the capture accumulates across the run
+by default.
+
+=== Running the workload, then auditing
+
+Run your repository calls first, then audit:
+
+[source,java]
+----
+try (Session session = sessionFactory.openSession()) {
+    session.createQuery("FROM Order o", Order.class).list();
+    session.find(Order.class, 1L);
+}
+
+QueryPlanExplainer explainer = new QueryPlanExplainer(dataSource, platform);
+
+assertThat(new WhereClauseIndexAudit(explainer, inspector).audit(Set.of(), List.of()))
+        .as("All WHERE clauses should be covered by an index.")
+        .isEmpty();
+----
+
+== JPA audit
+
+`SchemaEntityValidationAudit` is a formality: when `ddl-auto=validate` is active, Hibernate validates every
+mapped entity at `EntityManagerFactory` build time — reaching the audit means validation passed.
+
+[source,java]
+----
+Map<String, Object> settings = new HashMap<>();
+settings.put("hibernate.hbm2ddl.auto", "validate");
+EntityManagerFactory emf = Persistence.createEntityManagerFactory("my-unit", settings);
+
+assertThat(new SchemaEntityValidationAudit(emf).audit())
+        .as("Entity mappings should match the schema.")
+        .isEmpty();
+----
+
+The audit is only meaningful when the test enables validation.

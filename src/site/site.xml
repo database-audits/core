@@ -29,6 +29,10 @@
     <menu name="Using">
       <item name="Usage"              href="usage.html" />
     </menu>
+    <menu name="Reference">
+      <item name="Architecture"       href="architecture.html" />
+      <item name="Audits"             href="audits.html" />
+    </menu>
     <menu name="Developing">
       <item name="Building"           href="building.html" />
       <item name="Releasing"          href="releasing.html" />

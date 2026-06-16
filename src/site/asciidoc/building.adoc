@@ -1,0 +1,89 @@
+= Building
+
+== Requirements
+
+* JDK 21 (the library is compiled with `--release 21`)
+* Docker (for integration tests only — see below)
+* No local Maven install needed — use the bundled wrapper
+
+== Running tests
+
+=== Unit tests only
+
+No Docker required.
+
+----
+.\mvnw.cmd test
+----
+
+Run one test class:
+
+----
+.\mvnw.cmd test -Dtest=ForeignKeyIndexAuditTest
+----
+
+Run one test method:
+
+----
+.\mvnw.cmd test -Dtest=ForeignKeyIndexAuditTest#covers_multiColumnFk_whenLeadingColumnsMatch
+----
+
+=== Full build including integration tests
+
+Integration tests start real database containers via Testcontainers and require Docker running.
+
+----
+.\mvnw.cmd clean verify
+----
+
+Run one integration test class:
+
+----
+.\mvnw.cmd verify -Dit.test=CatalogAuditsIT
+----
+
+=== Test output
+
+Test console output is redirected to files. When a test fails, read the report files — not the build console:
+
+* Unit tests: `target/surefire-reports/`
+* Integration tests: `target/failsafe-reports/`
+
+== Docker and integration tests
+
+Integration tests deliberately *fail* rather than skip when Docker is absent, so supported platforms are never
+silently unverified. The H2 path inside `CatalogAuditsIT` is embedded and needs no Docker; the PostgreSQL,
+MySQL, and MariaDB parameterizations do.
+
+=== Overriding container images
+
+The default images pin the documented version floors. Override per run to test against a different version:
+
+----
+.\mvnw.cmd clean verify -Ddatabaseaudits.it.postgresql.image=postgres:17-alpine
+----
+
+Available overrides:
+
+* `databaseaudits.it.postgresql.image`
+* `databaseaudits.it.mysql.image`
+* `databaseaudits.it.mariadb.image`
+
+== Coverage reports
+
+JaCoCo writes separate unit and integration reports after each run:
+
+* Unit: `target/site/jacoco/index.html`
+* Integration: `target/site/jacoco-it/index.html`
+
+== Maven site
+
+Generate and preview the site locally:
+
+----
+.\mvnw.cmd site site:stage
+----
+
+The staged site lands in `target/staging/core/`. Open `target/staging/core/index.html` in a browser to
+preview it. JaCoCo reports must be generated first (run `clean verify` before `site`) or the coverage links
+will be empty.
