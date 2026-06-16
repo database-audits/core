@@ -9,14 +9,12 @@ on:
       - '**/*.adoc'
       - '**/*.md'
   workflow_run:
-    workflows: ["Build any branch", "Record Dependabot update in changes.xml"]
+    workflows: ["Build any branch"]
     types: [completed]
     branches: [ main ]
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -33,11 +31,13 @@ jobs:
     timeout-minutes: 20
     steps:
     - uses: actions/checkout@v6
+      with:
+        ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
     - uses: ./.github/actions/jdk-setup
     # Tests run (no -DskipTests) so JaCoCo writes target/jacoco.exec and target/jacoco-it.exec;
     # the site step renders the unit and integration coverage reports from them.
     - name: Build project (runs tests for coverage data)
-      run: ${{ env.MAVEN_COMMAND }} ${{ env.MAVEN_CLI_COMMON }} clean install
+      run: ${{ env.MAVEN_COMMAND }} ${{ env.MAVEN_CLI_COMMON }} clean verify
     # site:stage assembles the per-module sites of this multi-module build into
     # target/staging/, using the <distributionManagement><site> urls in the poms.
     - name: Generate and stage Maven site
@@ -59,6 +59,9 @@ jobs:
       github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
