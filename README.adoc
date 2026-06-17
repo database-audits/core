@@ -1,0 +1,26 @@
+= Database Audits Core
+
+Database audits can run from tests — missing primary keys, unindexed foreign keys, redundant indexes,
+full-table mutations, and more. Plain constructor injection; no DI framework required.
+
+== Dependency
+
+[source,xml]
+----
+<dependency>
+  <groupId>io.github.database-audits</groupId>
+  <artifactId>database-audits-core</artifactId>
+  <version>VERSION</version>
+  <scope>test</scope>
+</dependency>
+----
+
+For Spring Boot, use the https://github.com/database-audits/spring-boot[database-audits-spring-boot] module.
+
+== Documentation
+
+Quick start, usage, audit reference, and architecture at https://database-audits.github.io/core.
+
+== License
+
+Apache License 2.0
