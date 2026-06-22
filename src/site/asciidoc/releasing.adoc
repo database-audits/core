@@ -1,59 +1,42 @@
 = Releasing
 
-== Snapshot deployments
+Releases publish to Maven Central from CI: you run one command locally, then approve the deploy in GitHub
+Actions. Driven by `maven-release-plugin` (parent POM) and `release.yml`.
 
-Every successful build on the `main` branch automatically deploys a `-SNAPSHOT` artifact to Maven Central via
-`deploy-snapshot.yml`. No manual action is needed.
+== Prerequisites (one-time)
 
-== Release deployments
+* Repo secrets: `CENTRAL_USERNAME`, `CENTRAL_TOKEN`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`.
+* A `release` GitHub environment with yourself as a required reviewer — the approval gate before publish.
+* Docker running locally: `release:prepare` runs `verify`, which runs the Testcontainers integration tests.
 
-Releases use `maven-release-plugin`. The plugin tags the repository, advances the POM versions, and triggers a
-GitHub Actions workflow that publishes to Maven Central.
+== Snapshot deployment
 
-=== Step 1 — prepare
+Every successful `main` build deploys the `-SNAPSHOT` to Maven Central via `deploy-snapshot.yml`. No action needed.
 
-Run locally from the repository root. The plugin will prompt for the release version and next development
-version, or accept them as arguments:
+== Releasing
 
+. Run `release:prepare` locally. It runs `clean verify`, strips `-SNAPSHOT`, commits the release version, tags
+`v<version>`, bumps to the next snapshot, and *pushes the commits and tag automatically* (`pushChanges` defaults
+to true):
++
 ----
 .\mvnw.cmd release:prepare
 ----
++
+Prompts for the release version, tag (`v<version>`), and next development version; the defaults are usually right.
+Or non-interactively: `release:prepare -DreleaseVersion=1.2.0 -DdevelopmentVersion=1.3.0-SNAPSHOT -Dtag=v1.2.0`.
 
-Or non-interactively:
+. The pushed `v*` tag triggers `release.yml`, which *waits for your approval* on the `release` environment. Approve
+the run in the Actions tab. It then deploys with `-Prelease` (GPG-signed, sources + javadoc) and auto-publishes to
+Central. Tests are not re-run (`-DskipTests`); `release:prepare` already verified them.
 
-----
-.\mvnw.cmd release:prepare -DreleaseVersion=1.2.0 -DdevelopmentVersion=1.3.0-SNAPSHOT -Dtag=v1.2.0
-----
+. Confirm the artifact at
+https://central.sonatype.com/artifact/io.github.database-audits/database-audits-core[Maven Central]. `main` now
+carries the next `-SNAPSHOT`, and `publish-docs.yml` redeploys the site after the following `main` build.
 
-This creates two commits (bump to release version, bump to next SNAPSHOT) and a `v1.2.0` tag.
+== Aborting
 
-=== Step 2 — push the tag
-
-----
-git push --tags
-----
-
-Pushing the `v*` tag triggers `release.yml` in GitHub Actions, which runs `.\mvnw.cmd deploy -Prelease`. The
-`release` profile activates:
-
-* GPG signing of all artifacts
-* Attachment of sources and javadoc jars
-* Deployment to Maven Central
-
-The release workflow does *not* require Docker — integration tests are not re-run during the release build.
-
-=== Step 3 — verify on Maven Central
-
-After the workflow completes, confirm the artifact is available at
-`https://central.sonatype.com/artifact/io.github.database-audits/database-audits-core`.
-
-== Site deployment
-
-`publish-docs.yml` rebuilds and redeploys the Maven site to GitHub Pages. It triggers:
-
-* On any push to `main` that touches `src/site/**`, `*.adoc`, or `*.md`
-* On successful completion of the main build workflow (`build-any-branch.yml`) on `main`
-* Manually via workflow dispatch
-
-The workflow runs `clean verify` to generate JaCoCo coverage data, then `site site:stage` to build and stage
-the site, and deploys the result to the `github-pages` GitHub Pages environment.
+`release:prepare` pushes immediately, so the approval gate is the stop point: *reject* the pending `release`
+deployment in the Actions tab so nothing publishes, then drop what prepare pushed — delete the remote tag
+(`git push --delete origin v<version>`) and revert the two release commits on `main`. (`release:rollback` only
+helps if a `prepare` fails before it pushes.)
