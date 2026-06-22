@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+
+tone_instructions: >-
+  Prioritize correctness and the documented invariants over style. Style (immutability,
+  JavaDoc, constructor injection, blank-line-after-brace) is enforced by convention and
+  the build; Lombok and JSpecify are intentional — do not re-flag them.
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  poem: false
+  collapse_walkthrough: true
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    base_branches:
+      - main
+  path_filters:
+    - "!**/target/**"
+    - "!.jackknife/**"
+  path_instructions:
+    - path: "src/main/java/**"
+      instructions: >-
+        Audits return a List<String> of findings (empty = clean); callers assert. Main code
+        carries NO assertion framework (AssertJ is test-scoped). Audits must NEVER pass
+        vacuously: "can't run" conditions THROW — runtime audits throw IllegalStateException
+        on empty capture; plan audits' requirePlanAuditSupport throws
+        UnsupportedOperationException on non-PostgreSQL. Do not suggest returning an empty
+        list there. DatabasePlatform switches are EXHAUSTIVE with no default on purpose (a
+        new enum value should fail to compile until handled) — do not suggest a default case.
+        Plan audits are PostgreSQL-only and need a DataSource carrying preferQueryMode=simple;
+        the SAME SqlCapturingStatementInspector instance must be both Hibernate's
+        StatementInspector and the one the audits read. Lombok (@AllArgsConstructor, logging)
+        and JSpecify (@Nullable) are intentional. Changing an audit's public audit(...)
+        signature requires a matching update to the spring-boot repo's
+        DatabaseAuditTestConfiguration — call that out.
+    - path: "src/test/java/**/*IT.java"
+      instructions: >-
+        Integration tests (failsafe; real databases via the DatabaseContainers singleton;
+        CatalogAuditsIT is a @ParameterizedClass over DatabaseFixture). Each audit must be
+        verified against planted violations: REPORT the planted violation, then PASS once it
+        is excluded — a vacuously green audit is a bug. Method names:
+        test<Method>_<Conditions>_<Outcome>; prefer AssertJ; add .as("…") ending with a period.
+    - path: "src/test/java/**/*Test.java"
+      instructions: >-
+        Unit tests (surefire; Mockito + pure logic). Same naming and AssertJ conventions as ITs.
+  tools:
+    gitleaks:
+      enabled: true
+    actionlint:
+      enabled: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "CLAUDE.md"
+  learnings:
+    scope: auto
