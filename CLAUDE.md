@@ -114,7 +114,7 @@ runtime but uses no EXPLAIN — it token-scans the capture for a leading `UPDATE
 
 - Make assumptions and proceed without asking for confirmation on routine changes. If an action is destructive (e.g., deleting files), pause and ask.
 - To start docker, run "Rancher Desktop".
-- when updating any audit classes, also update as necessary the ../spring-boot module beans in DatabaseAuditTestConfiguration
+- when updating any audit classes, also update as necessary the ../spring-boot-integration module beans in DatabaseAuditTestConfiguration
 
 ## Code Style
 

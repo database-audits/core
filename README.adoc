@@ -15,7 +15,7 @@ full-table mutations, and more. Plain constructor injection; no DI framework req
 </dependency>
 ----
 
-For Spring Boot, use the https://github.com/database-audits/spring-boot[database-audits-spring-boot] module.
+For Spring Boot, use the https://github.com/database-audits/spring-boot-integration[database-audits-spring-boot-integration] module.
 
 == Documentation
 

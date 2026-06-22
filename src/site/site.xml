@@ -38,7 +38,7 @@
       <item name="Releasing"          href="releasing.html" />
     </menu>
     <menu name="Links">
-      <item name="Boot Integration"   href="https://database-audits.github.io/spring-boot" />
+      <item name="Boot Integration"   href="https://database-audits.github.io/spring-boot-integration" />
     </menu>
 
     <menu ref="reports"/>

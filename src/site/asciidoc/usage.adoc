@@ -1,7 +1,7 @@
 = Usage
 
 This page covers direct construction of audits. For Spring Boot, import `DatabaseAuditTestConfiguration` from
-the link:https://database-audits.github.io/spring-boot[spring-boot module] — it wires every audit and
+the link:https://database-audits.github.io/spring-boot-integration[spring-boot-integration module] — it wires every audit and
 collaborator automatically.
 
 == Quick start

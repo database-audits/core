@@ -40,7 +40,7 @@ Spring, any other container, or no container at all.
 |===
 
 For Spring Boot, import `DatabaseAuditTestConfiguration` from the
-link:https://database-audits.github.io/spring-boot[spring-boot module] — it wires every audit and its
+link:https://database-audits.github.io/spring-boot-integration[spring-boot-integration module] — it wires every audit and its
 collaborators automatically.
 
 For direct construction see link:usage.html[Usage], the full audit reference is in link:audits.html[Audits],

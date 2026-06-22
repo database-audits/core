@@ -47,7 +47,7 @@ abstract class CapturedSqlPlanAuditTemplate {
              — these plan-based audits are PostgreSQL 16+ only.
              On PostgreSQL, the most likely cause is a missing \
              preferQueryMode=simple on the test datasource JDBC URL.
-             See: https://database-audits.github.io/spring-boot/usage.html#postgresql-jdbc-requirement""";
+             See: https://database-audits.github.io/spring-boot-integration/usage.html#postgresql-jdbc-requirement""";
 
     private static final String SKIP_UNCHECKABLE_MSG = """
             Un-checkable (parameter type inference, jsonb `?`, unparsable).\
