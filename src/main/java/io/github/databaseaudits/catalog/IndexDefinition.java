@@ -16,6 +16,15 @@ import org.jspecify.annotations.Nullable;
  * exactly the conservative behavior the audits want. {@code partial} marks a
  * PostgreSQL index with a {@code WHERE} predicate, which does not reliably
  * serve other lookups.
+ *
+ * @param tableName The table the index belongs to.
+ * @param indexName The index name.
+ * @param unique Whether the index enforces uniqueness.
+ * @param primary Whether the index backs the primary key.
+ * @param partial Whether the index has a {@code WHERE} predicate (a PostgreSQL
+ *            partial index).
+ * @param columns The key columns in index order; an entry is {@code null} for a
+ *            part that is not a plain column (expression or prefix part).
  */
 public record IndexDefinition(String tableName, String indexName,
         boolean unique, boolean primary, boolean partial,
@@ -23,6 +32,8 @@ public record IndexDefinition(String tableName, String indexName,
     /**
      * Whether any key part is not a plain column (expression or prefix part —
      * represented as NULL).
+     *
+     * @return {@code true} if any key part is an expression or prefix part.
      */
     public boolean hasExpressionColumn() {
         return columns.stream().anyMatch(Objects::isNull);

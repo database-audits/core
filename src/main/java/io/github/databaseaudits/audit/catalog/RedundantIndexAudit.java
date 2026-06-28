@@ -45,6 +45,8 @@ public class RedundantIndexAudit {
      *                            The schema to scan.
      * @param excludedIndexes
      *                            The index names to skip.
+     * @return One description per index made redundant by a wider one; an empty
+     *         list when no index is redundant.
      */
     public List<String> audit(final String schema,
             final Set<String> excludedIndexes) {

@@ -60,6 +60,7 @@ public enum DatabasePlatform {
      *
      * @param dataSource
      *                       The data source to inspect.
+     * @return The platform detected from the data source.
      * @throws IllegalStateException
      *                                      If a connection or its metadata
      *                                      cannot be obtained.
@@ -84,6 +85,7 @@ public enum DatabasePlatform {
      *
      * @param productName
      *                        The JDBC database product name.
+     * @return The platform matching the product name.
      * @throws IllegalArgumentException
      *                                      If the product is not a supported
      *                                      platform.

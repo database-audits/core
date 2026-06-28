@@ -51,6 +51,7 @@ public class SqlCapturingStatementInspector implements StatementInspector {
 
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
+    /** The distinct SQL statements captured so far. */
     private final Set<String> captured = ConcurrentHashMap.newKeySet();
 
     @Override
