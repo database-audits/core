@@ -119,6 +119,8 @@ public class ForeignKeyIndexAudit {
      *                                The constraint names to skip, e.g. a
      *                                join-table FK that is intentionally
      *                                unindexed.
+     * @return One description per foreign key with no covering index; an empty
+     *         list when every foreign key is backed by one.
      */
     public List<String> audit(final String schema,
             final Set<String> excludedConstraints) {

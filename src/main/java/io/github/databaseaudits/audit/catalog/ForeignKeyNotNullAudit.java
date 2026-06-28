@@ -67,6 +67,8 @@ public class ForeignKeyNotNullAudit {
      *                            The schema to scan.
      * @param excludedColumns
      *                            The columns to skip, as {@code table.column}.
+     * @return One description per nullable foreign key column; an empty list
+     *         when every foreign key column is {@code NOT NULL}.
      */
     public List<String> audit(final String schema,
             final Set<String> excludedColumns) {

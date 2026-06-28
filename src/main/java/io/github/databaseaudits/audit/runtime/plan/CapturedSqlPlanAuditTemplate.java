@@ -73,6 +73,8 @@ abstract class CapturedSqlPlanAuditTemplate {
      * @param excludedSqlFragments
      *                                 The SQL fragments whose containing
      *                                 statements to skip.
+     * @return One finding per offending plan node; an empty list when every
+     *         candidate statement is served by an index.
      * @throws UnsupportedOperationException
      *                                           On any non-PostgreSQL platform.
      * @throws IllegalStateException
@@ -173,18 +175,27 @@ abstract class CapturedSqlPlanAuditTemplate {
     /**
      * Whether this normalized, upper-cased statement is one this audit should
      * EXPLAIN.
+     *
+     * @param upperCasedSql The normalized, upper-cased statement text.
+     * @return {@code true} if this audit should EXPLAIN the statement.
      */
     protected abstract boolean isCandidate(String upperCasedSql);
 
     /**
      * Planner GUCs to penalize so a surviving node proves a missing index, e.g.
      * {@code "enable_seqscan = off"}.
+     *
+     * @return The planner GUCs to penalize, each as a {@code SET} argument.
      */
     protected abstract String[] plannerSettings();
 
     /**
      * Walk the plan tree from {@code plan} and add a human-readable finding for
      * each offending node.
+     *
+     * @param plan The plan node to walk.
+     * @param findings The list to add human-readable findings to.
+     * @param excludedRelations The relation names to skip.
      */
     protected abstract void collectFindings(JsonNode plan,
             List<String> findings, Set<String> excludedRelations);
@@ -192,6 +203,8 @@ abstract class CapturedSqlPlanAuditTemplate {
     /**
      * Noun for the vacuous-run guard message, e.g. {@code "WHERE-clause"} or
      * {@code "ORDER BY"}.
+     *
+     * @return The statement noun for the vacuous-run guard message.
      */
     protected abstract String statementNoun();
 }

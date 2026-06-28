@@ -33,6 +33,15 @@ import io.github.databaseaudits.plan.QueryPlanExplainer;
  * and NULLS order), or exclude the relation / SQL fragment.
  */
 public class OrderByIndexAudit extends CapturedSqlPlanAuditTemplate {
+    /**
+     * Creates the audit.
+     *
+     * @param queryPlanExplainer
+     *                               Obtains the PostgreSQL query plan for a
+     *                               captured statement.
+     * @param sqlCapturer
+     *                               Supplies the captured SQL to audit.
+     */
     public OrderByIndexAudit(final QueryPlanExplainer queryPlanExplainer,
             final SqlCapturingStatementInspector sqlCapturer) {
         super(queryPlanExplainer, sqlCapturer);

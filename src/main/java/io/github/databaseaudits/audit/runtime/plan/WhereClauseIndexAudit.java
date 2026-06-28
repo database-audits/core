@@ -32,6 +32,15 @@ import io.github.databaseaudits.plan.QueryPlanExplainer;
  * fragment.
  */
 public class WhereClauseIndexAudit extends CapturedSqlPlanAuditTemplate {
+    /**
+     * Creates the audit.
+     *
+     * @param queryPlanExplainer
+     *                               Obtains the PostgreSQL query plan for a
+     *                               captured statement.
+     * @param sqlCapturer
+     *                               Supplies the captured SQL to audit.
+     */
     public WhereClauseIndexAudit(final QueryPlanExplainer queryPlanExplainer,
             final SqlCapturingStatementInspector sqlCapturer) {
         super(queryPlanExplainer, sqlCapturer);

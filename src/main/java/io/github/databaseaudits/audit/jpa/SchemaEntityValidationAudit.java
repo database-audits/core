@@ -36,6 +36,9 @@ public class SchemaEntityValidationAudit {
      * built (so startup validation never ran); an empty list when it was —
      * which, under {@code ddl-auto=validate}, means the mappings matched the
      * schema.
+     *
+     * @return A single violation when the {@link EntityManagerFactory} is
+     *         {@code null}; otherwise an empty list.
      */
     public List<String> audit() {
         if (entityManagerFactory == null) {

@@ -68,6 +68,8 @@ public class PrimaryKeyPresenceAudit {
      *                           The schema to scan.
      * @param excludedTables
      *                           The table names to skip.
+     * @return The name of every base table with no {@code PRIMARY KEY}; an
+     *         empty list when every table has one.
      */
     public List<String> audit(final String schema,
             final Set<String> excludedTables) {

@@ -145,6 +145,8 @@ public class ForeignKeyTypeMatchAudit {
      *                            The schema to scan.
      * @param excludedColumns
      *                            The columns to skip, as {@code table.column}.
+     * @return One description per foreign key column whose type differs from
+     *         its referenced column's; an empty list when every column matches.
      */
     public List<String> audit(final String schema,
             final Set<String> excludedColumns) {

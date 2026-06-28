@@ -39,6 +39,15 @@ import io.github.databaseaudits.plan.QueryPlanExplainer;
  * exclusions).
  */
 public class JoinIndexAudit extends CapturedSqlPlanAuditTemplate {
+    /**
+     * Creates the audit.
+     *
+     * @param queryPlanExplainer
+     *                               Obtains the PostgreSQL query plan for a
+     *                               captured statement.
+     * @param sqlCapturer
+     *                               Supplies the captured SQL to audit.
+     */
     public JoinIndexAudit(final QueryPlanExplainer queryPlanExplainer,
             final SqlCapturingStatementInspector sqlCapturer) {
         super(queryPlanExplainer, sqlCapturer);
