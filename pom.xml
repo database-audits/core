@@ -132,6 +132,25 @@
     </dependency>
   </dependencies>
 
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <!--
+          Lombok generates the @AllArgsConstructor constructors at compile time,
+          but the Javadoc tool reads the raw source and so reports a phantom
+          default constructor on each annotated class. Disable only the "missing"
+          doclint group to silence those false positives; all other doclint
+          checks stay on.
+        -->
+        <configuration>
+          <doclint>all,-missing</doclint>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
   <distributionManagement>
     <site>
       <id>github-pages</id>
