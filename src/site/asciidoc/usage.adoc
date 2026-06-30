@@ -88,18 +88,16 @@ assertThat(new WhereClauseIndexAudit(explainer, inspector).audit(Set.of(), List.
 
 == JPA audit
 
-`SchemaEntityValidationAudit` is a formality: when `ddl-auto=validate` is active, Hibernate validates every
-mapped entity at `EntityManagerFactory` build time — reaching the audit means validation passed.
+`SchemaEntityValidationAudit` validates Hibernate's entity mappings against the live schema, reporting every
+mismatch (missing table, missing column, incompatible column type) in one run. Run with `ddl-auto=none`: it does
+*not* rely on Hibernate's fail-fast `ddl-auto=validate` startup check.
 
 [source,java]
 ----
-Map<String, Object> settings = new HashMap<>();
-settings.put("hibernate.hbm2ddl.auto", "validate");
-EntityManagerFactory emf = Persistence.createEntityManagerFactory("my-unit", settings);
-
-assertThat(new SchemaEntityValidationAudit(emf).audit())
+assertThat(SchemaEntityValidationAudit.forEntityManagerFactory(entityManagerFactory, dataSource).audit())
         .as("Entity mappings should match the schema.")
         .isEmpty();
 ----
 
-The audit is only meaningful when the test enables validation.
+Pass a known, acceptable mismatch as an excluded relation (a `table` name or `table.column`, optionally
+schema-qualified as `schema.table` / `schema.table.column`) to `audit(Set<String>)`.

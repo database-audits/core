@@ -80,9 +80,10 @@ without `WHERE`.
 
 == JPA family
 
-**`SchemaEntityValidationAudit`** takes an `EntityManagerFactory`. When `hibernate.hbm2ddl.auto=validate` is
-active, Hibernate validates every mapped entity at factory-build time; if the factory was built, validation
-passed. The audit checks the factory is non-null as a formality confirming the paired test enabled validation.
+**`SchemaEntityValidationAudit`** validates Hibernate's entity mappings against the live schema, reporting every
+missing table, missing column, and incompatible column type in one run (using Hibernate's own type-compatibility
+rule). It runs under `ddl-auto=none` — not Hibernate's fail-fast `ddl-auto=validate` — obtaining the boot mapping
+model from a `MappingMetadataIntegrator` captured during bootstrap, plus a `DataSource` to read the live schema.
 
 == Exclusions
 
