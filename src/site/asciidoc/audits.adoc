@@ -234,18 +234,24 @@ delete from session_tokens
 
 === SchemaEntityValidationAudit
 
-The JPA entity mappings must match the live database schema. The real check is Hibernate startup validation
-(`hibernate.hbm2ddl.auto=validate` / `spring.jpa.hibernate.ddl-auto=validate`): Hibernate validates every
-mapped entity against its table and columns when the `EntityManagerFactory` is built — if the factory was built,
-validation passed. This audit confirms the factory is non-null as a formality; reaching it means validation
-succeeded. The paired test *must* enable validation for the assertion to mean anything.
+The JPA entity mappings must match the live database schema. This audit walks Hibernate's fully resolved boot
+mapping model and, for each mapped table, confirms against the live database metadata that the table exists, every
+mapped column exists, and each column's type is compatible — reporting *all* mismatches in one run. It uses
+Hibernate's own type-compatibility rule, so a mapping Hibernate accepts is never flagged.
+
+Run with `ddl-auto=none`. The audit deliberately does *not* rely on Hibernate's `ddl-auto=validate` startup check,
+which fails fast on the first mismatch and aborts the `EntityManagerFactory` build. The boot mapping model is
+captured during bootstrap by a `MappingMetadataIntegrator` (auto-registered via `META-INF/services`).
 
 [source,java]
 ----
-List<String> findings = new SchemaEntityValidationAudit(entityManagerFactory).audit();
+List<String> findings =
+    SchemaEntityValidationAudit.forEntityManagerFactory(entityManagerFactory, dataSource).audit();
 ----
 
-*Finding:* `EntityManagerFactory should have been built under ddl-auto=validate.` (if the factory is null).
+*Finding:* e.g. `missing column [quantity] in table [public.parent]`, or `wrong column type in column [name] in
+table [public.parent]; found [integer], but expecting [varchar(255)]`.
 
-*Fix:* Enable `hibernate.hbm2ddl.auto=validate` when building the `EntityManagerFactory`, and ensure entity
-mappings match the Liquibase-built schema (whichever drifted).
+*Fix:* Reconcile the entity mappings with the Liquibase-built schema (whichever drifted), or pass a known,
+acceptable mismatch as an excluded relation (a `table` name or `table.column`, optionally schema-qualified as
+`schema.table` / `schema.table.column`) to `audit(Set<String>)`.
