@@ -36,7 +36,7 @@ import lombok.AllArgsConstructor;
  */
 @AllArgsConstructor
 public class ForeignKeyIndexAudit {
-    private final CatalogQueries jdbcSupport;
+    private final CatalogQueries catalogQueries;
     private final IndexCatalog indexCatalog;
     private final DatabasePlatform platform;
 
@@ -153,7 +153,7 @@ public class ForeignKeyIndexAudit {
 
     private List<ForeignKey> readForeignKeys(final String schema) {
         final List<Map<String, @Nullable Object>> rows =
-                jdbcSupport.queryForList(sql(), schema);
+                catalogQueries.queryForList(sql(), schema);
         final var byConstraint = new LinkedHashMap<String, ForeignKey>();
         for (final Map<String, @Nullable Object> row : rows) {
             final String table = String.valueOf(row.get("table_name"));

@@ -31,7 +31,7 @@ public class PrimaryKeyPresenceAudit {
     public static final Set<String> LIQUIBASE_BOOKKEEPING_TABLES =
             Set.of("databasechangelog", "databasechangeloglock");
 
-    private final CatalogQueries jdbcSupport;
+    private final CatalogQueries catalogQueries;
     private final DatabasePlatform platform;
 
     /**
@@ -73,7 +73,7 @@ public class PrimaryKeyPresenceAudit {
      */
     public List<String> audit(final String schema,
             final Set<String> excludedTables) {
-        return jdbcSupport.queryForList(sql(), schema).stream()
+        return catalogQueries.queryForList(sql(), schema).stream()
                 .map(r -> String.valueOf(r.get("table_name")))
                 .filter(t -> !excludedTables.contains(t)).toList();
     }

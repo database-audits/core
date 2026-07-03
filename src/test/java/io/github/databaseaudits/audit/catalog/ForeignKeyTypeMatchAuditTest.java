@@ -84,10 +84,10 @@ class ForeignKeyTypeMatchAuditTest {
 
     @Test
     void testAudit_MismatchedFkColumnType_ReportsColumnAndTypes() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new ForeignKeyTypeMatchAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new ForeignKeyTypeMatchAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(
                         List.of(typeRow("parent_id", "integer", "id", "bigint"),
                                 typeRow("other_id", "bigint", "id", "bigint")));
@@ -103,10 +103,10 @@ class ForeignKeyTypeMatchAuditTest {
 
     @Test
     void testAudit_ExcludedColumn_ReturnsNoViolations() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new ForeignKeyTypeMatchAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new ForeignKeyTypeMatchAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List
                         .of(typeRow("parent_id", "integer", "id", "bigint")));
 
@@ -117,10 +117,10 @@ class ForeignKeyTypeMatchAuditTest {
 
     @Test
     void testAudit_MatchingTypesOnly_ReturnsNoViolations() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new ForeignKeyTypeMatchAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new ForeignKeyTypeMatchAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List
                         .of(typeRow("parent_id", "bigint", "id", "bigint")));
 

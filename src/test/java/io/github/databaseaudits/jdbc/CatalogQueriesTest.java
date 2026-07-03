@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
  */
 class CatalogQueriesTest {
     private final DataSource dataSource = mock(DataSource.class);
-    private final CatalogQueries jdbcSupport = new CatalogQueries(dataSource);
+    private final CatalogQueries catalogQueries = new CatalogQueries(dataSource);
 
     @Test
     void testQueryForList_PositionalArguments_BindsThemAndReadsRowsCaseInsensitively()
@@ -45,7 +45,7 @@ class CatalogQueriesTest {
         when(resultSet.next()).thenReturn(true, false);
         when(resultSet.getObject(1)).thenReturn("orders");
 
-        final List<Map<String, @Nullable Object>> rows = jdbcSupport
+        final List<Map<String, @Nullable Object>> rows = catalogQueries
                 .queryForList("select t.x from t where s = ?", "public");
 
         verify(statement).setObject(1, "public");
@@ -59,7 +59,7 @@ class CatalogQueriesTest {
         when(dataSource.getConnection()).thenThrow(new SQLException("boom"));
 
         assertThatExceptionOfType(IllegalStateException.class)
-                .isThrownBy(() -> jdbcSupport.queryForList("select 1"))
+                .isThrownBy(() -> catalogQueries.queryForList("select 1"))
                 .withMessageContaining("select 1");
     }
 }

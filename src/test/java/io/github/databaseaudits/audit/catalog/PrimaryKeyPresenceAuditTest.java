@@ -63,10 +63,10 @@ class PrimaryKeyPresenceAuditTest {
 
     @Test
     void testAudit_TableWithoutPrimaryKey_ReportsTableName() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new PrimaryKeyPresenceAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new PrimaryKeyPresenceAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of(tableRow("orders")));
 
         assertThat(audit.audit("public", Set.of()))
@@ -76,10 +76,10 @@ class PrimaryKeyPresenceAuditTest {
 
     @Test
     void testAudit_MultipleMissingPrimaryKeys_ReportsAllTableNames() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new PrimaryKeyPresenceAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new PrimaryKeyPresenceAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of(tableRow("orders"), tableRow("items")));
 
         assertThat(audit.audit("public", Set.of()))
@@ -89,10 +89,10 @@ class PrimaryKeyPresenceAuditTest {
 
     @Test
     void testAudit_LiquibaseBookkeepingTablesExcluded_ReturnsNoViolations() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new PrimaryKeyPresenceAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new PrimaryKeyPresenceAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of(tableRow("databasechangelog"),
                         tableRow("databasechangeloglock")));
 
@@ -104,10 +104,10 @@ class PrimaryKeyPresenceAuditTest {
 
     @Test
     void testAudit_PartialExclusion_ReportsOnlyNonExcludedTables() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new PrimaryKeyPresenceAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new PrimaryKeyPresenceAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of(tableRow("orders"),
                         tableRow("databasechangelog")));
 
@@ -118,10 +118,10 @@ class PrimaryKeyPresenceAuditTest {
 
     @Test
     void testAudit_AllTablesHavePrimaryKeys_ReturnsNoViolations() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new PrimaryKeyPresenceAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new PrimaryKeyPresenceAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of());
 
         assertThat(audit.audit("public", Set.of()))
