@@ -17,21 +17,25 @@ Both errors indicate a configuration problem to fix, not a clean schema.
 
 == `DatabasePlatform` — the hub
 
-`DatabasePlatform` is an enum of the four supported products: `H2`, `MARIADB`, `MYSQL`, `POSTGRESQL`. Every
-place in the library that needs platform-specific SQL holds an exhaustive `switch` with *no `default` branch*:
+`DatabasePlatform` is an enum of the four supported products: `H2`, `MARIADB`, `MYSQL`, `POSTGRESQL`. Each
+constant holds a `CatalogDialect` — the source of the catalog audits' per-engine SQL — reached through
+`platform.catalogDialect()`:
 
 [source,java]
 ----
-return switch (platform) {
-case POSTGRESQL -> POSTGRESQL_FK_SQL;
-case MYSQL, MARIADB -> MYSQL_FK_SQL;
-case H2 -> H2_FK_SQL;
-};
+return platform.catalogDialect().foreignKeysSql();
 ----
 
-Adding a new enum value makes the compiler flag every SQL site that needs updating — a compile-time guarantee of
-completeness. Detect the platform once at startup with `DatabasePlatform.fromDataSource(DataSource)`, which
-opens one connection, reads `DatabaseMetaData.getDatabaseProductName()`, and closes the connection.
+`CatalogDialect` declares an *abstract* method for each query whose SQL genuinely diverges between engines
+(`indexCatalogSql`, `foreignKeysSql`, `foreignKeyColumnTypesSql` — PostgreSQL's `pg_catalog`, MySQL's
+`information_schema.statistics`/`key_column_usage`, H2's `information_schema`) and a *default* method for each
+query whose standard `information_schema` SQL every engine shares (`tablesWithoutPrimaryKeySql`,
+`nullableForeignKeyColumnSql`). `PostgresqlCatalogDialect`, `MysqlCatalogDialect`, and `H2CatalogDialect` supply
+the divergent SQL; `MARIADB` reuses `MysqlCatalogDialect`. Adding an engine means adding an enum constant with a
+dialect: the constant's constructor requires one, and a divergent dialect will not compile until it implements
+every abstract method — the same compile-time completeness the old exhaustive `switch`es gave, while the shared
+SQL is written once. Detect the platform once at startup with `DatabasePlatform.fromDataSource(DataSource)`,
+which opens one connection, reads `DatabaseMetaData.getDatabaseProductName()`, and closes the connection.
 
 == Catalog family (all platforms)
 

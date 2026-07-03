@@ -27,28 +27,48 @@ import io.github.databaseaudits.audit.runtime.UnconditionalMutationAudit;
  * {@code DatabaseAuditTestConfiguration} does exactly that).
  *
  * <p>
- * To add a platform, add an enum value: every per-audit SQL {@code switch} is
- * exhaustive with no {@code default}, so the compiler then flags each place
- * that needs SQL for the new platform.
+ * To add a platform, add an enum value with its {@link CatalogDialect}: the
+ * constant's constructor requires one, and a divergent dialect's abstract
+ * methods will not compile until they supply the per-engine SQL — so the
+ * compiler still flags each place that needs SQL for the new platform (an
+ * engine with the standard {@code information_schema} layout reuses an existing
+ * dialect or inherits the shared default SQL).
  */
 public enum DatabasePlatform {
     /** H2 2.x (the 1.x information_schema had a different layout). */
-    H2,
+    H2(new H2CatalogDialect()),
 
     /**
      * MariaDB 10.6+. (Connecting to MariaDB through MySQL Connector/J detects
      * as {@link #MYSQL} — same SQL.)
      */
-    MARIADB,
+    MARIADB(new MysqlCatalogDialect()),
 
     /** MySQL 8+. Aurora MySQL reports as MySQL. */
-    MYSQL,
+    MYSQL(new MysqlCatalogDialect()),
 
     /**
      * PostgreSQL 11+ for the catalog audits, 16+ for the plan audits. Aurora
      * PostgreSQL reports as PostgreSQL.
      */
-    POSTGRESQL;
+    POSTGRESQL(new PostgresqlCatalogDialect());
+
+    private final CatalogDialect catalogDialect;
+
+    DatabasePlatform(final CatalogDialect catalogDialect) {
+        this.catalogDialect = catalogDialect;
+    }
+
+    /**
+     * Returns this platform's catalog SQL dialect — the source of the catalog
+     * audits' and {@link io.github.databaseaudits.catalog.IndexCatalog}'s
+     * per-engine SQL.
+     *
+     * @return this platform's catalog dialect.
+     */
+    public CatalogDialect catalogDialect() {
+        return catalogDialect;
+    }
 
     private static final String FAILED_OBTAINING_DB_FROM_DATA_SOURCE_MSG =
             "Could not read the database product name from the DataSource";

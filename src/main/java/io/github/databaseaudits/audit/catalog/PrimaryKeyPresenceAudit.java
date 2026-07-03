@@ -34,30 +34,8 @@ public class PrimaryKeyPresenceAudit {
     private final CatalogQueries catalogQueries;
     private final DatabasePlatform platform;
 
-    /**
-     * Standard information_schema, valid as-is on PostgreSQL, MySQL, MariaDB,
-     * and H2.
-     */
-    private static final String INFORMATION_SCHEMA_TABLES_WITHOUT_PK_SQL = """
-            SELECT t.table_name
-            FROM   information_schema.tables t
-            WHERE  t.table_schema = ?
-              AND  t.table_type = 'BASE TABLE'
-              AND  NOT EXISTS (
-                     SELECT 1
-                     FROM   information_schema.table_constraints tc
-                     WHERE  tc.table_schema    = t.table_schema
-                       AND  tc.table_name      = t.table_name
-                       AND  tc.constraint_type = 'PRIMARY KEY'
-                   )
-            ORDER BY t.table_name
-            """;
-
     String sql() {
-        return switch (platform) {
-        case POSTGRESQL, MYSQL, MARIADB, H2 ->
-            INFORMATION_SCHEMA_TABLES_WITHOUT_PK_SQL;
-        };
+        return platform.catalogDialect().tablesWithoutPrimaryKeySql();
     }
 
     /**
