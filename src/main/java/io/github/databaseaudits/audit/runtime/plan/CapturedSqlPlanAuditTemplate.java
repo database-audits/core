@@ -9,6 +9,8 @@ import java.util.TreeMap;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import org.jspecify.annotations.Nullable;
+
 import io.github.databaseaudits.capture.SqlCapturingStatementInspector;
 import io.github.databaseaudits.plan.QueryPlanExplainer;
 import lombok.AccessLevel;
@@ -197,7 +199,8 @@ abstract class CapturedSqlPlanAuditTemplate {
      * @param node The plan node to search from.
      * @return The first relation name at or below {@code node}, or {@code null}.
      */
-    protected final String firstRelationName(final JsonNode node) {
+    protected final @Nullable String firstRelationName(
+            final @Nullable JsonNode node) {
         if (node == null) {
             return null;
         }
