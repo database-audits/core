@@ -35,7 +35,9 @@ public class UnconditionalMutationAudit {
      * empty list when none.
      *
      * @param excludedStatements
-     *                               The normalized statement texts to skip.
+     *                               The normalized statement texts to skip,
+     *                               matched case-insensitively against the
+     *                               normalized statement text.
      * @return One normalized statement per captured unconditional
      *         {@code UPDATE}/{@code DELETE}; an empty list when none.
      * @throws IllegalStateException
