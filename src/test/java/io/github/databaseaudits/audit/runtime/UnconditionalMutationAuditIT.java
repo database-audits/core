@@ -50,6 +50,13 @@ class UnconditionalMutationAuditIT {
     }
 
     @Test
+    void testAudit_ExcludedStatementInDifferentCase_ReturnsNoViolations() {
+        capturer.inspect("delete from scratch_buffer");
+        assertThat(audit.audit(Set.of("DELETE FROM SCRATCH_BUFFER")))
+                .isEmpty();
+    }
+
+    @Test
     void testAudit_EmptyCapture_ThrowsRatherThanReportingVacuously() {
         assertThatExceptionOfType(IllegalStateException.class)
                 .isThrownBy(() -> audit.audit(Set.of()))
