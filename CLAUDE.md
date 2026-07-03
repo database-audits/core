@@ -151,7 +151,7 @@ runtime but uses no EXPLAIN — it token-scans the capture for a leading `UPDATE
   - Adhere strictly to de facto standard Git commit message formatting.
   - Use Conventional Commits format.
   - **Commit Types:** `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `build:`, `ci:`
-  - **Scopes:** any of the database names, `core`, `spring`, `pom`, `log`, `docker`, `database`, `metadata`, `scripts`, `site`
+  - **Scopes:** any of the database names, `claude`, `pom`, `log`, `docker`, `database`, `metadata`, `scripts`, `site`
   - Capitalize the first word after the type and scope.
   - You may suggest additional CC commit types and scopes when encountering situations where the changes do not fit into the approved lists above.
   - Reference GitHub issues in the commit footer with `Refs: <issue-number>` (e.g. `Refs: 123`).  Do not use a # before the number.
