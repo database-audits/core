@@ -98,16 +98,18 @@ public class QueryPlanExplainer {
         final String planJson;
         try (Connection connection = dataSource.getConnection();
                 Statement st = connection.createStatement()) {
-            for (final String setting : sessionSettings) {
-                st.execute("SET " + setting);
-            }
-            try (ResultSet rs = st.executeQuery(
-                    "EXPLAIN (GENERIC_PLAN, FORMAT JSON) " + generic)) {
-                final var json = new StringBuilder();
-                while (rs.next()) {
-                    json.append(rs.getString(1));
+            try {
+                for (final String setting : sessionSettings) {
+                    st.execute("SET " + setting);
                 }
-                planJson = json.toString();
+                try (ResultSet rs = st.executeQuery(
+                        "EXPLAIN (GENERIC_PLAN, FORMAT JSON) " + generic)) {
+                    final var json = new StringBuilder();
+                    while (rs.next()) {
+                        json.append(rs.getString(1));
+                    }
+                    planJson = json.toString();
+                }
             } finally {
                 for (final String setting : sessionSettings) {
                     st.execute("RESET " + settingName(setting));
