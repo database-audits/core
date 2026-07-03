@@ -45,67 +45,8 @@ public class ForeignKeyIndexAudit {
             String referencedTable, List<String> columns) {
     }
 
-    private static final String POSTGRESQL_FK_SQL =
-            """
-                    SELECT cl.relname  AS table_name,
-                           c.conname   AS constraint_name,
-                           ref.relname AS referenced_table,
-                           a.attname   AS column_name
-                    FROM   pg_constraint c
-                    JOIN   pg_class cl  ON cl.oid  = c.conrelid
-                    JOIN   pg_class ref ON ref.oid = c.confrelid
-                    CROSS  JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ordinal)
-                    JOIN   pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
-                    WHERE  c.contype = 'f'
-                      AND  c.connamespace = ?::regnamespace
-                    ORDER  BY 1, 2, k.ordinal
-                    """;
-
-    /**
-     * key_column_usage carries the referenced table directly on MySQL/MariaDB.
-     */
-    private static final String MYSQL_FK_SQL = """
-            SELECT k.table_name            AS table_name,
-                   k.constraint_name       AS constraint_name,
-                   k.referenced_table_name AS referenced_table,
-                   k.column_name           AS column_name
-            FROM   information_schema.key_column_usage k
-            WHERE  k.table_schema = ?
-              AND  k.referenced_table_name IS NOT NULL
-            ORDER  BY 1, 2, k.ordinal_position
-            """;
-
-    /**
-     * Standard information_schema; constraint names are unique per schema on
-     * H2, so the joins are exact.
-     */
-    private static final String H2_FK_SQL = """
-            SELECT tc.table_name      AS table_name,
-                   tc.constraint_name AS constraint_name,
-                   ref_tc.table_name  AS referenced_table,
-                   kcu.column_name    AS column_name
-            FROM   information_schema.table_constraints tc
-            JOIN   information_schema.key_column_usage kcu
-              ON   kcu.constraint_schema = tc.constraint_schema
-             AND   kcu.constraint_name   = tc.constraint_name
-             AND   kcu.table_name        = tc.table_name
-            JOIN   information_schema.referential_constraints rc
-              ON   rc.constraint_schema = tc.constraint_schema
-             AND   rc.constraint_name   = tc.constraint_name
-            LEFT   JOIN information_schema.table_constraints ref_tc
-              ON   ref_tc.constraint_schema = rc.unique_constraint_schema
-             AND   ref_tc.constraint_name   = rc.unique_constraint_name
-            WHERE  tc.constraint_type = 'FOREIGN KEY'
-              AND  tc.table_schema = ?
-            ORDER  BY 1, 2, kcu.ordinal_position
-            """;
-
     String sql() {
-        return switch (platform) {
-        case POSTGRESQL -> POSTGRESQL_FK_SQL;
-        case MYSQL, MARIADB -> MYSQL_FK_SQL;
-        case H2 -> H2_FK_SQL;
-        };
+        return platform.catalogDialect().foreignKeysSql();
     }
 
     /**

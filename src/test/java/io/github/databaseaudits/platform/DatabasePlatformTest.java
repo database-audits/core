@@ -65,6 +65,22 @@ class DatabasePlatformTest {
                 .withMessageContaining("product name");
     }
 
+    @Test
+    void testCatalogDialect_EachPlatform_HoldsItsDialectType() {
+        assertThat(DatabasePlatform.POSTGRESQL.catalogDialect())
+                .as("PostgreSQL uses its own catalog dialect.")
+                .isInstanceOf(PostgresqlCatalogDialect.class);
+        assertThat(DatabasePlatform.MYSQL.catalogDialect())
+                .as("MySQL uses its own catalog dialect.")
+                .isInstanceOf(MysqlCatalogDialect.class);
+        assertThat(DatabasePlatform.MARIADB.catalogDialect())
+                .as("MariaDB reuses the MySQL catalog dialect.")
+                .isInstanceOf(MysqlCatalogDialect.class);
+        assertThat(DatabasePlatform.H2.catalogDialect())
+                .as("H2 uses its own catalog dialect.")
+                .isInstanceOf(H2CatalogDialect.class);
+    }
+
     private static DataSource dataSourceReporting(final String productName)
             throws SQLException {
         final DatabaseMetaData metaData = mock(DatabaseMetaData.class);
