@@ -1,7 +1,9 @@
 package io.github.databaseaudits.audit.runtime;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import io.github.databaseaudits.capture.SqlCapturingStatementInspector;
 import lombok.AllArgsConstructor;
@@ -51,14 +53,18 @@ public class UnconditionalMutationAudit {
             throw new IllegalStateException(
                     SqlCapturingStatementInspector.EMPTY_CAPTURE_MESSAGE);
         }
+        final Set<String> excludedLowerCased = excludedStatements.stream()
+                .map(statement -> statement.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
         return capturedSql.stream().map(sqlCapturer::normalize)
                 .filter(this::isUnconditionalMutation)
-                .filter(sql -> !excludedStatements.contains(sql.toLowerCase()))
+                .filter(sql -> !excludedLowerCased
+                        .contains(sql.toLowerCase(Locale.ROOT)))
                 .distinct().sorted().toList();
     }
 
     private boolean isUnconditionalMutation(final String normalizedSql) {
-        final String upper = normalizedSql.toUpperCase();
+        final String upper = normalizedSql.toUpperCase(Locale.ROOT);
         return (upper.startsWith("UPDATE ") || upper.startsWith("DELETE "))
                 && !upper.contains(" WHERE ");
     }
