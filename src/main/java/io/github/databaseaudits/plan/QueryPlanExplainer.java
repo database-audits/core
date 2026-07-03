@@ -123,7 +123,7 @@ public class QueryPlanExplainer {
         try {
             return OBJECT_MAPPER.readTree(planJson).get(0).get("Plan");
         } catch (final Exception e) {
-            throw new RuntimeException("Could not parse EXPLAIN output", e);
+            throw new IllegalStateException("Could not parse EXPLAIN output", e);
         }
     }
 
