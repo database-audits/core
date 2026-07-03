@@ -64,7 +64,7 @@ public class WhereClauseIndexAudit extends CapturedSqlPlanAuditTemplate {
             final List<String> findings, final Set<String> excludedRelations) {
         if (node != null) {
             addFilteredSeqScan(node, findings, excludedRelations);
-            addPlansFilteredSeqScan(node, findings, excludedRelations);
+            collectChildFindings(node, findings, excludedRelations);
         }
     }
 
@@ -77,16 +77,6 @@ public class WhereClauseIndexAudit extends CapturedSqlPlanAuditTemplate {
             if (relation == null || !excludedRelations.contains(relation)) {
                 findings.add("Seq Scan on '" + relation + "' filtering "
                         + queryPlanExplainer.textOf(node, "Filter"));
-            }
-        }
-    }
-
-    private void addPlansFilteredSeqScan(final JsonNode node,
-            final List<String> findings, final Set<String> excludedRelations) {
-        final JsonNode planNodes = node.get("Plans");
-        if (planNodes != null) {
-            for (final JsonNode planNode : planNodes) {
-                collectFindings(planNode, findings, excludedRelations);
             }
         }
     }
