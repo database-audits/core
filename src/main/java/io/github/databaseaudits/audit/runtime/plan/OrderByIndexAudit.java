@@ -66,7 +66,7 @@ public class OrderByIndexAudit extends CapturedSqlPlanAuditTemplate {
             return;
         }
         addUnindexedSort(node, findings, excludedRelations);
-        addPlansUnindexedSort(node, findings, excludedRelations);
+        collectChildFindings(node, findings, excludedRelations);
     }
 
     private void addUnindexedSort(final JsonNode node,
@@ -80,41 +80,6 @@ public class OrderByIndexAudit extends CapturedSqlPlanAuditTemplate {
                 findings.add(type + onRelation + " by " + sortKeyOf(node));
             }
         }
-    }
-
-    private void addPlansUnindexedSort(final JsonNode node,
-            final List<String> findings, final Set<String> excludedRelations) {
-        final JsonNode planNodes = node.get("Plans");
-        if (planNodes != null) {
-            for (final JsonNode planNode : planNodes) {
-                collectFindings(planNode, findings, excludedRelations);
-            }
-        }
-    }
-
-    /**
-     * First {@code Relation Name} at or below this node — the table whose
-     * ordering an index would serve.
-     */
-    private String firstRelationName(final JsonNode node) {
-        if (node == null) {
-            return null;
-        }
-        final String relation =
-                queryPlanExplainer.textOf(node, "Relation Name");
-        if (relation != null) {
-            return relation;
-        }
-        final JsonNode planNodes = node.get("Plans");
-        if (planNodes != null) {
-            for (final JsonNode planNode : planNodes) {
-                final String found = firstRelationName(planNode);
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
-        return null;
     }
 
     private String sortKeyOf(final JsonNode sortNode) {

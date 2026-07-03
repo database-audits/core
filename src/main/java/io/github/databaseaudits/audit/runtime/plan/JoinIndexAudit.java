@@ -76,17 +76,7 @@ public class JoinIndexAudit extends CapturedSqlPlanAuditTemplate {
         }
         addSurvivingHashOrMergeJoin(node, findings, excludedRelations);
         addNestedLoopWithInnerSeqScan(node, findings, excludedRelations);
-        addChildFindings(node, findings, excludedRelations);
-    }
-
-    private void addChildFindings(final JsonNode node,
-            final List<String> findings, final Set<String> excludedRelations) {
-        final JsonNode planNodes = node.get("Plans");
-        if (planNodes != null) {
-            for (final JsonNode planNode : planNodes) {
-                collectFindings(planNode, findings, excludedRelations);
-            }
-        }
+        collectChildFindings(node, findings, excludedRelations);
     }
 
     private void addSurvivingHashOrMergeJoin(final JsonNode node,
@@ -186,31 +176,6 @@ public class JoinIndexAudit extends CapturedSqlPlanAuditTemplate {
         return "Hash".equals(nodeType) || "Sort".equals(nodeType)
                 || "Incremental Sort".equals(nodeType)
                 || "Materialize".equals(nodeType) || "Memoize".equals(nodeType);
-    }
-
-    /**
-     * First {@code Relation Name} at or below this node — the relation whose
-     * join key an index would serve.
-     */
-    private String firstRelationName(final JsonNode node) {
-        if (node == null) {
-            return null;
-        }
-        final String relation =
-                queryPlanExplainer.textOf(node, "Relation Name");
-        if (relation != null) {
-            return relation;
-        }
-        final JsonNode planNodes = node.get("Plans");
-        if (planNodes != null) {
-            for (final JsonNode planNode : planNodes) {
-                final String found = firstRelationName(planNode);
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
-        return null;
     }
 
     @Override

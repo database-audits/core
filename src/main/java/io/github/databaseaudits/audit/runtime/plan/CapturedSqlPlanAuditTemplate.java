@@ -173,6 +173,52 @@ abstract class CapturedSqlPlanAuditTemplate {
     }
 
     /**
+     * Recurses into this node's child {@code Plans}, collecting findings from
+     * each via {@link #collectFindings(JsonNode, List, Set)}.
+     *
+     * @param node The plan node whose child plans to walk.
+     * @param findings The list to add human-readable findings to.
+     * @param excludedRelations The relation names to skip.
+     */
+    protected final void collectChildFindings(final JsonNode node,
+            final List<String> findings, final Set<String> excludedRelations) {
+        final JsonNode planNodes = node.get("Plans");
+        if (planNodes != null) {
+            for (final JsonNode planNode : planNodes) {
+                collectFindings(planNode, findings, excludedRelations);
+            }
+        }
+    }
+
+    /**
+     * The first {@code Relation Name} at or below this node — the table whose
+     * access an index would serve — or {@code null} if none.
+     *
+     * @param node The plan node to search from.
+     * @return The first relation name at or below {@code node}, or {@code null}.
+     */
+    protected final String firstRelationName(final JsonNode node) {
+        if (node == null) {
+            return null;
+        }
+        final String relation =
+                queryPlanExplainer.textOf(node, "Relation Name");
+        if (relation != null) {
+            return relation;
+        }
+        final JsonNode planNodes = node.get("Plans");
+        if (planNodes != null) {
+            for (final JsonNode planNode : planNodes) {
+                final String found = firstRelationName(planNode);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Whether this normalized, upper-cased statement is one this audit should
      * EXPLAIN.
      *
