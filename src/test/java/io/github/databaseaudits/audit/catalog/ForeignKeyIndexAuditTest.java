@@ -109,11 +109,11 @@ class ForeignKeyIndexAuditTest {
 
     @Test
     void testAudit_UnindexedCompositeFk_ReportsFkAndColumns() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
         final IndexCatalog indexCatalog = mock(IndexCatalog.class);
-        final var auditUnderTest = new ForeignKeyIndexAudit(jdbcSupport,
+        final var auditUnderTest = new ForeignKeyIndexAudit(catalogQueries,
                 indexCatalog, DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of(fkRow("fk_child_parent", "a"),
                         fkRow("fk_child_parent", "b")));
         when(indexCatalog.readAll("public"))
@@ -128,11 +128,11 @@ class ForeignKeyIndexAuditTest {
 
     @Test
     void testAudit_IndexCoversFk_ReturnsNoViolations() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
         final IndexCatalog indexCatalog = mock(IndexCatalog.class);
-        final var auditUnderTest = new ForeignKeyIndexAudit(jdbcSupport,
+        final var auditUnderTest = new ForeignKeyIndexAudit(catalogQueries,
                 indexCatalog, DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of(fkRow("fk_child_parent", "a")));
         when(indexCatalog.readAll("public"))
                 .thenReturn(List.of(index("idx_a", false, "a", "x")));
@@ -144,11 +144,11 @@ class ForeignKeyIndexAuditTest {
 
     @Test
     void testAudit_ExcludedConstraint_ReturnsNoViolations() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
         final IndexCatalog indexCatalog = mock(IndexCatalog.class);
-        final var auditUnderTest = new ForeignKeyIndexAudit(jdbcSupport,
+        final var auditUnderTest = new ForeignKeyIndexAudit(catalogQueries,
                 indexCatalog, DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of(fkRow("fk_child_parent", "a")));
         when(indexCatalog.readAll("public"))
                 .thenReturn(List.of(index("only_c", false, "c")));

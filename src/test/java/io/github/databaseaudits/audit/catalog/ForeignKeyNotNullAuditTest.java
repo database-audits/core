@@ -58,10 +58,10 @@ class ForeignKeyNotNullAuditTest {
 
     @Test
     void testAudit_NullableFkColumn_ReportsTableColumnAndConstraintName() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new ForeignKeyNotNullAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new ForeignKeyNotNullAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of(
                         nullableColumnRow("child", "fk_child_parent", "parent_id")));
 
@@ -75,10 +75,10 @@ class ForeignKeyNotNullAuditTest {
 
     @Test
     void testAudit_MultipleNullableColumns_ReportsEachOne() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new ForeignKeyNotNullAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new ForeignKeyNotNullAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of(
                         nullableColumnRow("child", "fk_child_parent", "parent_id"),
                         nullableColumnRow("child", "fk_child_other", "other_id")));
@@ -90,10 +90,10 @@ class ForeignKeyNotNullAuditTest {
 
     @Test
     void testAudit_ExcludedColumn_ReturnsNoViolations() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new ForeignKeyNotNullAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new ForeignKeyNotNullAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of(
                         nullableColumnRow("child", "fk_child_parent", "parent_id")));
 
@@ -104,10 +104,10 @@ class ForeignKeyNotNullAuditTest {
 
     @Test
     void testAudit_PartialExclusion_ReportsOnlyNonExcludedColumns() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new ForeignKeyNotNullAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new ForeignKeyNotNullAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of(
                         nullableColumnRow("child", "fk_child_parent", "parent_id"),
                         nullableColumnRow("child", "fk_child_other", "other_id")));
@@ -122,10 +122,10 @@ class ForeignKeyNotNullAuditTest {
 
     @Test
     void testAudit_NoNullableColumns_ReturnsNoViolations() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
-        final var audit = new ForeignKeyNotNullAudit(jdbcSupport,
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new ForeignKeyNotNullAudit(catalogQueries,
                 DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(anyString(), any(Object[].class)))
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
                 .thenReturn(List.of());
 
         assertThat(audit.audit("public", Set.of()))

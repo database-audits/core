@@ -38,12 +38,12 @@ class CatalogAuditsIT {
         fixture.createViolationSchema();
     }
 
-    private CatalogQueries jdbcSupport() {
+    private CatalogQueries catalogQueries() {
         return new CatalogQueries(fixture.dataSource());
     }
 
     private IndexCatalog indexCatalog() {
-        return new IndexCatalog(jdbcSupport(), fixture.platform());
+        return new IndexCatalog(catalogQueries(), fixture.platform());
     }
 
     @Test
@@ -56,7 +56,7 @@ class CatalogAuditsIT {
     @Test
     void testPrimaryKeyPresenceAudit_PkLessTable_ReportedThenEmptyWhenExcluded() {
         final var audit =
-                new PrimaryKeyPresenceAudit(jdbcSupport(), fixture.platform());
+                new PrimaryKeyPresenceAudit(catalogQueries(), fixture.platform());
         final String noPkTable = fixture.expectedIdentifier("no_pk_table");
 
         assertThat(audit.audit(fixture.schema(), Set.of()))
@@ -70,7 +70,7 @@ class CatalogAuditsIT {
     @Test
     void testForeignKeyNotNullAudit_NullableFkColumn_ReportedThenEmptyWhenExcluded() {
         final var audit =
-                new ForeignKeyNotNullAudit(jdbcSupport(), fixture.platform());
+                new ForeignKeyNotNullAudit(catalogQueries(), fixture.platform());
         final String nullableFkColumn = fixture.expectedIdentifier("child")
                 + "." + fixture.expectedIdentifier("optional_parent_id");
 
@@ -110,7 +110,7 @@ class CatalogAuditsIT {
     @Test
     void testForeignKeyTypeMatchAudit_MismatchedFkColumnType_ReportedThenEmptyWhenExcluded() {
         final var audit =
-                new ForeignKeyTypeMatchAudit(jdbcSupport(), fixture.platform());
+                new ForeignKeyTypeMatchAudit(catalogQueries(), fixture.platform());
         final String mismatchedColumn = fixture
                 .expectedIdentifier("type_mismatch_child") + "."
                 + fixture.expectedIdentifier(fixture.mismatchedFkColumn());
@@ -141,7 +141,7 @@ class CatalogAuditsIT {
      */
     @Test
     void testForeignKeyIndexAudit_PlantedUnindexedFk_ReportedWherePlantedThenEmptyWhenExcluded() {
-        final var audit = new ForeignKeyIndexAudit(jdbcSupport(),
+        final var audit = new ForeignKeyIndexAudit(catalogQueries(),
                 indexCatalog(), fixture.platform());
         final String unindexedConstraint =
                 fixture.expectedIdentifier("fk_unindexed_child_parent");

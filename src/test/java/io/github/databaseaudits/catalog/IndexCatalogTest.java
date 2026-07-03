@@ -71,11 +71,11 @@ class IndexCatalogTest {
     }
 
     @Test
-    void testReadAll_PlatformSql_QueriesThroughJdbcSupportAndGroupsRows() {
-        final CatalogQueries jdbcSupport = mock(CatalogQueries.class);
+    void testReadAll_PlatformSql_QueriesThroughCatalogQueriesAndGroupsRows() {
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
         final IndexCatalog readingCatalog =
-                new IndexCatalog(jdbcSupport, DatabasePlatform.POSTGRESQL);
-        when(jdbcSupport.queryForList(readingCatalog.sql(), "public"))
+                new IndexCatalog(catalogQueries, DatabasePlatform.POSTGRESQL);
+        when(catalogQueries.queryForList(readingCatalog.sql(), "public"))
                 .thenReturn(List.of(row("t", "i", true, false, false, "a")));
 
         assertThat(readingCatalog.readAll("public"))

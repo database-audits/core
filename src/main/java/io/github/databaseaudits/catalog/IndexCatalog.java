@@ -26,7 +26,7 @@ import lombok.AllArgsConstructor;
  */
 @AllArgsConstructor
 public class IndexCatalog {
-    private final CatalogQueries jdbcSupport;
+    private final CatalogQueries catalogQueries;
     private final DatabasePlatform platform;
 
     /**
@@ -101,7 +101,7 @@ public class IndexCatalog {
      * @return An immutable list of all indexes in the schema.
      */
     public List<IndexDefinition> readAll(final String schema) {
-        return fromRows(jdbcSupport.queryForList(sql(), schema));
+        return fromRows(catalogQueries.queryForList(sql(), schema));
     }
 
     /**

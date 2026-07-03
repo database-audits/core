@@ -25,7 +25,7 @@ import lombok.AllArgsConstructor;
  */
 @AllArgsConstructor
 public class ForeignKeyNotNullAudit {
-    private final CatalogQueries jdbcSupport;
+    private final CatalogQueries catalogQueries;
     private final DatabasePlatform platform;
 
     /**
@@ -72,7 +72,7 @@ public class ForeignKeyNotNullAudit {
      */
     public List<String> audit(final String schema,
             final Set<String> excludedColumns) {
-        return jdbcSupport.queryForList(sql(), schema).stream()
+        return catalogQueries.queryForList(sql(), schema).stream()
                 .filter(r -> !excludedColumns.contains(
                         r.get("table_name") + "." + r.get("column_name")))
                 .map(r -> "%s.%s (%s) is nullable".formatted(
