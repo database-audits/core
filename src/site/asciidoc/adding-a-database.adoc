@@ -1,0 +1,212 @@
+= Adding a Database Platform
+
+This guide walks through adding support for a new database engine to `database-audits-core`. The design that
+makes this a small, compiler-guided change — the per-engine `CatalogDialect` behind each `DatabasePlatform` — is
+described in link:architecture.html[Architecture]; this page is the step-by-step.
+
+== What "a platform" is
+
+A platform is one `DatabasePlatform` enum constant paired with a `CatalogDialect` — the object that supplies the
+catalog audits' per-engine SQL. The catalog audits (`PrimaryKeyPresenceAudit`, `ForeignKeyIndexAudit`,
+`ForeignKeyNotNullAudit`, `ForeignKeyTypeMatchAudit`, `RedundantIndexAudit`) and `IndexCatalog` never switch on
+the platform; they ask `platform.catalogDialect()` for the SQL they run:
+
+[source,java]
+----
+return platform.catalogDialect().foreignKeysSql();
+----
+
+So adding an engine is three moves:
+
+. Supply its catalog SQL as a `CatalogDialect`
+. Add the enum constant
+. Teach detection to recognize the engine's product name.
+
+The plan-based runtime audits (`WhereClauseIndexAudit`, `OrderByIndexAudit`, `JoinIndexAudit`) play no part —
+they are PostgreSQL-only by design; see <<plan-audits>>.
+
+== Before you start
+
+* The engine must expose catalog metadata your SQL can read — the standard `information_schema`, or an
+  engine-specific catalog such as PostgreSQL's `pg_catalog`.
+* Decide whether the engine's catalog SQL matches an existing dialect. `MysqlCatalogDialect` and
+  `H2CatalogDialect` are the two shapes already covered (the `information_schema.statistics`/`key_column_usage`
+  layout and the standard `information_schema` layout). If your engine is wire-compatible with one of them, you
+  may reuse it rather than write a new dialect — as `MARIADB` reuses `MysqlCatalogDialect`.
+
+[#step-dialect]
+== Step 1 — Provide a `CatalogDialect`
+
+`CatalogDialect` declares three *abstract* methods (SQL that genuinely diverges between engines) and two
+*default* methods (standard `information_schema` SQL every supported engine shares). A new dialect must
+implement the three abstract methods; it inherits the two defaults unless its `information_schema` diverges.
+
+Each statement takes exactly one bind parameter — the schema name (`?`) — and its result is read *by column
+alias, case-insensitively* (`CatalogQueries` returns case-insensitive row maps, because PostgreSQL lower-cases
+unquoted aliases while H2 upper-cases them). So the aliases below are the contract; the source column names and
+catalog views are yours to choose.
+
+[cols="1,3", options="header"]
+|===
+| Method | Must project (one row per …), aliased exactly
+
+| `indexCatalogSql()` +
+_(abstract)_
+| One row per index **key column**, ordered by table, index, key position: `table_name`, `index_name`,
+`is_unique`, `is_primary`, `is_partial`, `column_name`. Exclude full-text/spatial indexes and non-key
+`INCLUDE` columns; map a prefix-only or expression key part to a NULL `column_name` (it cannot cover a
+full-column lookup). Boolean flags may be SQL `BOOLEAN` or `0`/`1` — `IndexCatalog` accepts either.
+
+| `foreignKeysSql()` +
+_(abstract)_
+| One row per foreign-key **column**, ordered by table, constraint, column position: `table_name`,
+`constraint_name`, `referenced_table`, `column_name`.
+
+| `foreignKeyColumnTypesSql()` +
+_(abstract)_
+| One row per foreign-key **column**, ordered by table, constraint, column position: `table_name`,
+`constraint_name`, `column_name`, `column_type`, `referenced_table`, `referenced_column`, `referenced_type`.
+The two `*_type` values must render the **fully-qualified declared type** — length, precision, and scale — so a
+real mismatch (`varchar(10)` vs `varchar(20)`, `DECIMAL(10,2)` vs `DECIMAL(5,0)`) is visible rather than
+collapsing to a bare type name.
+
+| `tablesWithoutPrimaryKeySql()` +
+_(default)_
+| One row per base table with no `PRIMARY KEY`: `table_name`. Standard `information_schema`; override only if
+the engine's differs.
+
+| `nullableForeignKeyColumnSql()` +
+_(default)_
+| One row per nullable foreign-key column: `table_name`, `constraint_name`, `column_name`. Standard
+`information_schema`; override only if the engine's differs.
+|===
+
+The class itself is a plain `final` implementation of the interface:
+
+[source,java]
+----
+package io.github.databaseaudits.platform;
+
+/** The {@link CatalogDialect} for CockroachDB, reading from its {@code information_schema}. */
+public final class CockroachdbCatalogDialect implements CatalogDialect {
+    @Override
+    public String indexCatalogSql() {
+        return """
+                SELECT ... AS table_name,
+                       ... AS index_name,
+                       ... AS is_unique,
+                       ... AS is_primary,
+                       ... AS is_partial,
+                       ... AS column_name
+                FROM   ...
+                WHERE  ... = ?
+                ORDER  BY 1, 2, ...
+                """;
+    }
+
+    @Override
+    public String foreignKeysSql() {
+        return """
+                SELECT ... AS table_name,
+                       ... AS constraint_name,
+                       ... AS referenced_table,
+                       ... AS column_name
+                FROM   ...
+                WHERE  ... = ?
+                ORDER  BY 1, 2, ...
+                """;
+    }
+
+    @Override
+    public String foreignKeyColumnTypesSql() {
+        return """
+                SELECT ... -- table_name, constraint_name, column_name, column_type,
+                       ... -- referenced_table, referenced_column, referenced_type
+                FROM   ...
+                WHERE  ... = ?
+                ORDER  BY 1, 2, ...
+                """;
+    }
+
+    // tablesWithoutPrimaryKeySql() and nullableForeignKeyColumnSql() are inherited from
+    // CatalogDialect — override only if this engine's information_schema diverges.
+}
+----
+
+*Tip:* Copy the closest existing dialect rather than starting blank. `H2CatalogDialect` is the reference for the
+standard `information_schema` layout (`table_constraints` / `key_column_usage` / `referential_constraints`);
+`MysqlCatalogDialect` is the reference for the `information_schema.statistics` + directly-referenced-table
+layout; `PostgresqlCatalogDialect` is the reference for a fully engine-specific catalog (`pg_catalog`).
+
+[#step-constant]
+== Step 2 — Add the `DatabasePlatform` constant
+
+Add an enum constant, passing the dialect — a new one, or an existing one you are reusing:
+
+[source,java]
+----
+/** CockroachDB 23+. */
+COCKROACHDB(new CockroachdbCatalogDialect()),
+----
+
+The constant's constructor *requires* a dialect, and a new dialect will not compile until it implements all
+three abstract methods — so the compiler flags every place that still needs SQL for the new engine, the same
+completeness the old exhaustive `switch`es enforced, while the shared `information_schema` SQL is written once.
+
+[#step-detect]
+== Step 3 — Teach detection to recognize the engine
+
+`DatabasePlatform.fromProductName(String)` maps the JDBC `DatabaseMetaData.getDatabaseProductName()
+` (matched case-insensitively as a substring) to a constant. Add a branch:
+
+[source,java]
+----
+} else if (name.contains("cockroach")) {
+    databasePlatform = COCKROACHDB;
+----
+
+`fromDataSource(DataSource)` — which the Spring integration calls once at startup — opens one connection, reads
+the product name, and delegates here, so this single branch wires auto-detection everywhere. Keep the
+unsupported-platform message's supported-list in sync.
+
+*Note:* A product that reports an *existing* product's name needs no new branch. Aurora PostgreSQL reports as
+`PostgreSQL`; MariaDB reached through MySQL Connector/J reports as `MySQL`. Add a branch only for a genuinely
+new product string.
+
+[#plan-audits]
+== The plan audits stay PostgreSQL-only
+
+`WhereClauseIndexAudit`, `OrderByIndexAudit`, and `JoinIndexAudit` read query plans from
+`EXPLAIN (GENERIC_PLAN, FORMAT JSON)` with planner-penalty GUCs. No other engine offers a parameter-free
+generic-plan EXPLAIN, so these audits require `POSTGRESQL` and *fail fast* (rather than pass vacuously) on any
+other platform. Adding a new engine gives it the catalog family, the JPA audit, and the capture-scan
+`UnconditionalMutationAudit` — but not the plan audits, and that needs no action from you: they check the
+platform themselves. (Teaching them a second engine would be a much larger change — a new generic-plan EXPLAIN
+strategy — not part of adding a platform.)
+
+== Step 4 — Tests
+
+Mirror the tests that accompany the existing dialects:
+
+* **`CatalogDialectTest`** — a unit assertion that the new dialect returns non-blank SQL for every method and
+  that each statement carries its single `?` parameter and the aliases the audits read.
+* **`<Engine>CatalogDialectIT`** — an integration test that runs the dialect's SQL against a real instance of the
+  engine (a Testcontainers container, or the in-memory engine as `H2CatalogDialectIT` does) over a known schema,
+  asserting the projected rows. This is where a wrong alias, join, or ordering surfaces.
+* **`DatabasePlatformTest`** — extend the detection cases so the new product name maps to the new constant.
+
+== Checklist
+
+* [ ] `CatalogDialect` implementation (or an existing dialect reused) covering the three abstract methods.
+* [ ] `DatabasePlatform` constant wired to the dialect, with a doc comment naming the supported version range.
+* [ ] `fromProductName` branch, and the supported-list in its error message updated.
+* [ ] `CatalogDialectTest`, an engine `…CatalogDialectIT`, and `DatabasePlatformTest` updated.
+* [ ] link:audits.html[Audits] / link:architecture.html[Architecture] platform lists updated if they enumerate engines.
+
+== Downstream: the Spring integration
+
+Once core recognizes the engine, the Spring integration audits it with **no code change** —
+`DatabaseAuditTestConfiguration` detects the platform from the live `DataSource` at runtime. To let the
+archetype *generate* a runnable demo harness for the new engine, follow the integration's
+link:https://database-audits.github.io/spring-boot-integration/adding-a-database.html[Adding a Database Platform]
+guide.

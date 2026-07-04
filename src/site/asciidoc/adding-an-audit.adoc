@@ -1,0 +1,161 @@
+= Adding an Audit
+
+This guide walks through adding a new audit to `database-audits-core`. The families, their collaborators, and
+the design rules an audit follows are described in link:architecture.html[Architecture]; this page is the
+step-by-step for each family.
+
+== The shape of every audit
+
+An audit is a plain class — constructor injection, no dependency-injection annotations — whose `audit(...)`
+method **returns a `List<String>` of human-readable violations, empty when clean**. The audit never asserts and
+never throws for a *finding*; the caller asserts. It throws only when it could not actually check anything (an
+empty SQL capture, an unsupported platform), so a misconfigured run fails loudly instead of passing vacuously.
+See *"Audits return findings; callers assert."* and *"Never pass vacuously."* in link:architecture.html[Architecture].
+
+Pick the family your check belongs to — each has a recipe below:
+
+[cols="1,3", options="header"]
+|===
+| Family | Use when your check reads …
+| <<catalog>> | database metadata (`information_schema` / `pg_catalog`) — deterministic, no test data needed.
+| <<plan>> | the *plans* of the SQL the app ran — to prove an access path has no serving index (PostgreSQL-only).
+| <<capture>> | the *text* of the SQL the app ran — e.g. a dangerous statement shape.
+| <<jpa>> | Hibernate's mapping model against the live schema.
+|===
+
+[#catalog]
+== Catalog audit
+
+A catalog audit takes `CatalogQueries` (the JDBC-to-list-of-maps layer) plus whatever it needs to obtain SQL and
+compare results: the `DatabasePlatform` when it runs per-engine catalog SQL, and/or `IndexCatalog` when it works
+from indexes. `PrimaryKeyPresenceAudit` is the minimal example:
+
+[source,java]
+----
+@AllArgsConstructor
+public class XxxAudit {
+    private final CatalogQueries catalogQueries;
+    private final DatabasePlatform platform;
+
+    String sql() {
+        return platform.catalogDialect().xxxSql();   // per-engine SQL from the dialect
+    }
+
+    /** Returns one finding per offending row; an empty list when clean. */
+    public List<String> audit(final String schema, final Set<String> excluded) {
+        return catalogQueries.queryForList(sql(), schema).stream()
+                .map(row -> String.valueOf(row.get("some_column")))
+                .filter(finding -> !excluded.contains(finding))
+                .toList();
+    }
+}
+----
+
+If the audit needs metadata no existing query returns, add a method to `CatalogDialect` — *abstract* if the SQL
+diverges between engines, *default* if the standard `information_schema` SQL serves every engine (see
+link:adding-a-database.html#step-dialect[Adding a Database — Step 1]). Read result columns *by alias,
+case-insensitively*. Index-based audits (`ForeignKeyIndexAudit`, `RedundantIndexAudit`) take `IndexCatalog`
+instead of writing their own SQL, and do the leading-prefix / containment comparison in plain Java where it is
+unit-testable and platform-independent.
+
+[#plan]
+== Runtime plan audit (PostgreSQL-only)
+
+The three EXPLAIN-driven audits share `CapturedSqlPlanAuditTemplate`, which owns the fixed algorithm — read the
+capture, de-duplicate by statement shape, `EXPLAIN` each candidate with penalties applied, collect offending
+nodes — *and* both vacuous-run guards (empty capture, wholly-unexplainable run). A new plan audit lives beside the template in the
+`audit.runtime.plan` package (the template is package-private), extends it, and supplies only the four variation
+points:
+
+[source,java]
+----
+@Slf4j
+public class XxxIndexAudit extends CapturedSqlPlanAuditTemplate {
+    public XxxIndexAudit(final QueryPlanExplainer explainer,
+            final SqlCapturingStatementInspector capturer) {
+        super(explainer, capturer);
+    }
+
+    @Override
+    protected boolean isCandidate(final String upperCasedSql) {
+        return upperCasedSql.contains("...");         // which statements to EXPLAIN
+    }
+
+    @Override
+    protected String[] plannerSettings() {
+        return new String[] { "enable_seqscan = off" }; // GUCs to penalize
+    }
+
+    @Override
+    protected void collectFindings(final JsonNode plan, final List<String> findings,
+            final Set<String> excludedRelations) {
+        // walk the plan; add a finding for each surviving penalized node.
+        // firstRelationName(...) and collectChildFindings(...) are provided by the base.
+    }
+
+    @Override
+    protected String statementNoun() {
+        return "XXX";                                  // for the vacuous-run guard message
+    }
+}
+----
+
+You do not re-implement capture reading, de-duplication, the empty-capture guard, or the all-skipped guard —
+they live in the template exactly once. Requires `preferQueryMode=simple` on the JDBC URL (generic-plan EXPLAIN
+only works over the simple query protocol); the base's guard message says so when a run explains nothing.
+
+[#capture]
+== Runtime capture-scan audit
+
+An audit that inspects the *text* rather than the *plan* of captured SQL takes only the
+`SqlCapturingStatementInspector`, reads `capturedSql()`, and scans — `UnconditionalMutationAudit` is the model.
+Guard the empty capture yourself so the audit never passes vacuously:
+
+[source,java]
+----
+public List<String> audit(final Set<String> excludedStatements) {
+    final Set<String> captured = sqlCapturer.capturedSql();
+    if (captured.isEmpty()) {
+        throw new IllegalStateException(SqlCapturingStatementInspector.EMPTY_CAPTURE_MESSAGE);
+    }
+    return captured.stream()...toList();
+}
+----
+
+[#jpa]
+== JPA mapping audit
+
+JPA audits validate Hibernate's boot mapping model against the live schema. `SchemaEntityValidationAudit` is the
+sole example; it obtains the mapping model from a `MappingMetadataIntegrator` captured during bootstrap plus a
+`DataSource`, and is built through a static factory (`forEntityManagerFactory(emf, dataSource)`) rather than a
+public constructor. A new JPA audit follows the same route. This is the rarest family — reach for it only when
+the check is genuinely about entity-to-schema mapping.
+
+== The standing directive — update the Spring beans in lockstep
+
+`database-audits-core` deliberately ships no Spring wiring; `database-audits-spring-boot` supplies it. Its
+`DatabaseAuditSuite` calls every core audit constructor directly, and a paired `<Audit>AuditAssertion` exposes
+each audit's findings as a test assertion.
+
+*Important:* A new audit (or any change to an existing audit's constructor or public `audit(...)` signature) must
+be matched in the Spring module. A compile failure there against core is the intended signal. The integration's
+link:https://database-audits.github.io/spring-boot-integration/adding-an-audit.html[Adding an Audit] guide is the
+other half of this recipe — and its roster-guard test fails the build if a new core audit has no wired
+assertion, so the two stay in step.
+
+== Tests
+
+* A **`<Audit>Test`** unit test over the finding logic — feed rows (catalog), plan JSON (plan), or captured
+  statements (capture) and assert the returned `List<String>`. Assert whole lists with AssertJ.
+* For a catalog audit, an **`…IT`** against a real engine (as the dialect ITs do) proves the SQL and the mapping
+  agree end-to-end.
+* Cover both a clean run (empty list) and the cannot-run guard (the thrown `IllegalStateException` /
+  `UnsupportedOperationException`), so the never-pass-vacuously contract is enforced.
+
+== Checklist
+
+* [ ] Audit class in the right `audit.*` package, returning `List<String>`, throwing only on a cannot-run condition.
+* [ ] Any new `CatalogDialect` method (abstract vs default chosen per <<catalog>>).
+* [ ] Unit test, and an IT where the audit runs real SQL; clean *and* cannot-run cases covered.
+* [ ] link:audits.html[Audits] reference entry for the new audit (what it detects, finding format, exclusion type).
+* [ ] Spring module updated in lockstep — see the integration's Adding an Audit guide.
