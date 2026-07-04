@@ -32,7 +32,7 @@ Every foreign key constraint must be backed by an index whose leading columns ar
 FK causes slow child→parent lookups and lock-heavy parent `DELETE`/`UPDATE` (sequential child scan under a
 strong lock). Pass constraint names to skip as `excludedConstraints`.
 
-NOTE: PostgreSQL and H2 do not auto-create an index for a foreign key. MySQL/MariaDB InnoDB does, so this
+*Note:* PostgreSQL and H2 do not auto-create an index for a foreign key. MySQL/MariaDB InnoDB does, so this
 audit usually passes there, though it still catches an index dropped after the fact on MariaDB (permitted while
 `foreign_key_checks` is suspended; MySQL refuses such drops outright).
 
