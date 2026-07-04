@@ -70,13 +70,14 @@ public class WhereClauseIndexAudit extends CapturedSqlPlanAuditTemplate {
 
     private void addFilteredSeqScan(final JsonNode node,
             final List<String> findings, final Set<String> excludedRelations) {
-        if ("Seq Scan".equals(queryPlanExplainer.textOf(node, "Node Type"))
-                && node.hasNonNull("Filter")) {
+        if (PlanJson.SEQ_SCAN
+                .equals(queryPlanExplainer.textOf(node, PlanJson.NODE_TYPE))
+                && node.hasNonNull(PlanJson.FILTER)) {
             final String relation =
-                    queryPlanExplainer.textOf(node, "Relation Name");
+                    queryPlanExplainer.textOf(node, PlanJson.RELATION_NAME);
             if (relation == null || !excludedRelations.contains(relation)) {
                 findings.add("Seq Scan on '" + relation + "' filtering "
-                        + queryPlanExplainer.textOf(node, "Filter"));
+                        + queryPlanExplainer.textOf(node, PlanJson.FILTER));
             }
         }
     }
