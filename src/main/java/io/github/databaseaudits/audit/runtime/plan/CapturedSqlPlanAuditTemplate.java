@@ -184,7 +184,7 @@ abstract class CapturedSqlPlanAuditTemplate {
      */
     protected final void collectChildFindings(final JsonNode node,
             final List<String> findings, final Set<String> excludedRelations) {
-        final JsonNode planNodes = node.get("Plans");
+        final JsonNode planNodes = node.get(PlanJson.PLANS);
         if (planNodes != null) {
             for (final JsonNode planNode : planNodes) {
                 collectFindings(planNode, findings, excludedRelations);
@@ -205,11 +205,11 @@ abstract class CapturedSqlPlanAuditTemplate {
             return null;
         }
         final String relation =
-                queryPlanExplainer.textOf(node, "Relation Name");
+                queryPlanExplainer.textOf(node, PlanJson.RELATION_NAME);
         if (relation != null) {
             return relation;
         }
-        final JsonNode planNodes = node.get("Plans");
+        final JsonNode planNodes = node.get(PlanJson.PLANS);
         if (planNodes != null) {
             for (final JsonNode planNode : planNodes) {
                 final String found = firstRelationName(planNode);

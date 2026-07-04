@@ -71,8 +71,9 @@ public class OrderByIndexAudit extends CapturedSqlPlanAuditTemplate {
 
     private void addUnindexedSort(final JsonNode node,
             final List<String> findings, final Set<String> excludedRelations) {
-        final String type = queryPlanExplainer.textOf(node, "Node Type");
-        if ("Sort".equals(type) || "Incremental Sort".equals(type)) {
+        final String type = queryPlanExplainer.textOf(node, PlanJson.NODE_TYPE);
+        if (PlanJson.SORT.equals(type)
+                || PlanJson.INCREMENTAL_SORT.equals(type)) {
             final String relation = firstRelationName(node);
             if (relation == null || !excludedRelations.contains(relation)) {
                 final String onRelation =
@@ -83,7 +84,7 @@ public class OrderByIndexAudit extends CapturedSqlPlanAuditTemplate {
     }
 
     private String sortKeyOf(final JsonNode sortNode) {
-        final JsonNode key = sortNode.get("Sort Key");
+        final JsonNode key = sortNode.get(PlanJson.SORT_KEY);
         if (key == null || !key.isArray()) {
             return "(unknown key)";
         }

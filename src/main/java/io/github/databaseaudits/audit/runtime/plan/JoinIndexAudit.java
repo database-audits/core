@@ -81,8 +81,9 @@ public class JoinIndexAudit extends CapturedSqlPlanAuditTemplate {
 
     private void addSurvivingHashOrMergeJoin(final JsonNode node,
             final List<String> findings, final Set<String> excludedRelations) {
-        final String type = queryPlanExplainer.textOf(node, "Node Type");
-        if ("Hash Join".equals(type) || "Merge Join".equals(type)) {
+        final String type = queryPlanExplainer.textOf(node, PlanJson.NODE_TYPE);
+        if (PlanJson.HASH_JOIN.equals(type)
+                || PlanJson.MERGE_JOIN.equals(type)) {
             final String relation = firstRelationName(innerChildOf(node));
             addJoinFinding(type, relation, joinConditionOf(node, null),
                     findings, excludedRelations);
@@ -91,13 +92,13 @@ public class JoinIndexAudit extends CapturedSqlPlanAuditTemplate {
 
     private void addNestedLoopWithInnerSeqScan(final JsonNode node,
             final List<String> findings, final Set<String> excludedRelations) {
-        if ("Nested Loop"
-                .equals(queryPlanExplainer.textOf(node, "Node Type"))) {
+        if (PlanJson.NESTED_LOOP
+                .equals(queryPlanExplainer.textOf(node, PlanJson.NODE_TYPE))) {
             final JsonNode innerScan = unwrapPassThrough(innerChildOf(node));
-            if (innerScan != null && "Seq Scan".equals(
-                    queryPlanExplainer.textOf(innerScan, "Node Type"))) {
-                final String relation =
-                        queryPlanExplainer.textOf(innerScan, "Relation Name");
+            if (innerScan != null && PlanJson.SEQ_SCAN.equals(
+                    queryPlanExplainer.textOf(innerScan, PlanJson.NODE_TYPE))) {
+                final String relation = queryPlanExplainer.textOf(innerScan,
+                        PlanJson.RELATION_NAME);
                 addJoinFinding("Nested Loop with inner Seq Scan", relation,
                         joinConditionOf(node, innerScan), findings,
                         excludedRelations);
@@ -119,22 +120,22 @@ public class JoinIndexAudit extends CapturedSqlPlanAuditTemplate {
     private String joinConditionOf(final JsonNode joinNode,
             final JsonNode innerScan) {
         final String hashCond =
-                queryPlanExplainer.textOf(joinNode, "Hash Cond");
+                queryPlanExplainer.textOf(joinNode, PlanJson.HASH_COND);
         if (hashCond != null) {
             return hashCond;
         }
         final String mergeCond =
-                queryPlanExplainer.textOf(joinNode, "Merge Cond");
+                queryPlanExplainer.textOf(joinNode, PlanJson.MERGE_COND);
         if (mergeCond != null) {
             return mergeCond;
         }
         final String joinFilter =
-                queryPlanExplainer.textOf(joinNode, "Join Filter");
+                queryPlanExplainer.textOf(joinNode, PlanJson.JOIN_FILTER);
         if (joinFilter != null) {
             return joinFilter;
         }
         final String innerFilter = innerScan == null ? null
-                : queryPlanExplainer.textOf(innerScan, "Filter");
+                : queryPlanExplainer.textOf(innerScan, PlanJson.FILTER);
         return innerFilter == null ? "(join condition not shown)" : innerFilter;
     }
 
@@ -143,13 +144,13 @@ public class JoinIndexAudit extends CapturedSqlPlanAuditTemplate {
      * have to serve.
      */
     private JsonNode innerChildOf(final JsonNode node) {
-        final JsonNode planNodes = node.get("Plans");
+        final JsonNode planNodes = node.get(PlanJson.PLANS);
         if (planNodes == null) {
             return null;
         }
         for (final JsonNode planNode : planNodes) {
-            if ("Inner".equals(queryPlanExplainer.textOf(planNode,
-                    "Parent Relationship"))) {
+            if (PlanJson.INNER.equals(queryPlanExplainer.textOf(planNode,
+                    PlanJson.PARENT_RELATIONSHIP))) {
                 return planNode;
             }
         }
@@ -163,8 +164,8 @@ public class JoinIndexAudit extends CapturedSqlPlanAuditTemplate {
     private JsonNode unwrapPassThrough(final JsonNode node) {
         JsonNode current = node;
         while (current != null && isPassThrough(
-                queryPlanExplainer.textOf(current, "Node Type"))) {
-            final JsonNode planNodes = current.get("Plans");
+                queryPlanExplainer.textOf(current, PlanJson.NODE_TYPE))) {
+            final JsonNode planNodes = current.get(PlanJson.PLANS);
             current =
                     planNodes != null && !planNodes.isEmpty() ? planNodes.get(0)
                             : null;
@@ -173,9 +174,10 @@ public class JoinIndexAudit extends CapturedSqlPlanAuditTemplate {
     }
 
     private boolean isPassThrough(final String nodeType) {
-        return "Hash".equals(nodeType) || "Sort".equals(nodeType)
-                || "Incremental Sort".equals(nodeType)
-                || "Materialize".equals(nodeType) || "Memoize".equals(nodeType);
+        return PlanJson.HASH.equals(nodeType) || PlanJson.SORT.equals(nodeType)
+                || PlanJson.INCREMENTAL_SORT.equals(nodeType)
+                || PlanJson.MATERIALIZE.equals(nodeType)
+                || PlanJson.MEMOIZE.equals(nodeType);
     }
 
     @Override
