@@ -2,6 +2,7 @@ package io.github.databaseaudits.audit.catalog;
 
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 
 import io.github.databaseaudits.audit.finding.Finding;
 import io.github.databaseaudits.audit.finding.MissingPrimaryKeyFinding;
@@ -28,7 +29,10 @@ import lombok.AllArgsConstructor;
 public class PrimaryKeyPresenceAudit {
     /**
      * Liquibase bookkeeping tables — never part of the application's data
-     * model.
+     * model. Named in lower case; {@link #audit(String, Set)} matches
+     * exclusions case-insensitively, so this constant also excludes the
+     * upper-case {@code DATABASECHANGELOG}/{@code DATABASECHANGELOGLOCK} that
+     * MySQL and MariaDB report for unquoted identifiers.
      */
     public static final Set<String> LIQUIBASE_BOOKKEEPING_TABLES =
             Set.of("databasechangelog", "databasechangeloglock");
@@ -57,9 +61,12 @@ public class PrimaryKeyPresenceAudit {
      */
     public List<Finding> audit(final String schema,
             final Set<String> excludedTables) {
+        final Set<String> excluded =
+                new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        excluded.addAll(excludedTables);
         return catalogQueries.queryForList(sql(), schema).stream()
                 .map(r -> String.valueOf(r.get("table_name")))
-                .filter(t -> !excludedTables.contains(t))
+                .filter(t -> !excluded.contains(t))
                 .<Finding>map(MissingPrimaryKeyFinding::new).toList();
     }
 }

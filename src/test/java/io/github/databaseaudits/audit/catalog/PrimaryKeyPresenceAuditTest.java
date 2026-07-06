@@ -106,6 +106,21 @@ class PrimaryKeyPresenceAuditTest {
     }
 
     @Test
+    void testAudit_UppercaseBookkeepingTablesExcludedByLowercaseConstant_ReturnsNoViolations() {
+        final CatalogQueries catalogQueries = mock(CatalogQueries.class);
+        final var audit = new PrimaryKeyPresenceAudit(catalogQueries,
+                DatabasePlatform.MYSQL);
+        when(catalogQueries.queryForList(anyString(), any(Object[].class)))
+                .thenReturn(List.of(tableRow("DATABASECHANGELOG"),
+                        tableRow("DATABASECHANGELOGLOCK")));
+
+        assertThat(audit.audit("public",
+                PrimaryKeyPresenceAudit.LIQUIBASE_BOOKKEEPING_TABLES))
+                .as("MySQL/MariaDB upper-case bookkeeping tables should be excluded case-insensitively by the lower-case constant.")
+                .isEmpty();
+    }
+
+    @Test
     void testAudit_PartialExclusion_ReportsOnlyNonExcludedTables() {
         final CatalogQueries catalogQueries = mock(CatalogQueries.class);
         final var audit = new PrimaryKeyPresenceAudit(catalogQueries,
