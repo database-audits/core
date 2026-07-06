@@ -10,6 +10,8 @@ import java.util.stream.Collectors;
 
 import org.jspecify.annotations.Nullable;
 
+import io.github.databaseaudits.audit.finding.Finding;
+import io.github.databaseaudits.audit.finding.ForeignKeyIndexFinding;
 import io.github.databaseaudits.catalog.IndexCatalog;
 import io.github.databaseaudits.catalog.IndexDefinition;
 import io.github.databaseaudits.jdbc.CatalogQueries;
@@ -50,9 +52,9 @@ public class ForeignKeyIndexAudit {
     }
 
     /**
-     * Returns a description of every foreign key with no supporting index whose
-     * leading columns are the FK columns, except excluded constraints; an empty
-     * list when every FK is backed by one.
+     * Returns one {@link Finding} for every foreign key with no supporting index
+     * whose leading columns are the FK columns, except excluded constraints; an
+     * empty list when every FK is backed by one.
      *
      * @param schema
      *                                The schema to scan.
@@ -60,10 +62,11 @@ public class ForeignKeyIndexAudit {
      *                                The constraint names to skip, e.g. a
      *                                join-table FK that is intentionally
      *                                unindexed.
-     * @return One description per foreign key with no covering index; an empty
-     *         list when every foreign key is backed by one.
+     * @return One {@link Finding} per foreign key with no covering index — its
+     *         {@link Finding#description() description} is the reported line; an
+     *         empty list when every foreign key is backed by one.
      */
-    public List<String> audit(final String schema,
+    public List<Finding> audit(final String schema,
             final Set<String> excludedConstraints) {
         final List<ForeignKey> foreignKeys = readForeignKeys(schema);
         final Map<String, List<IndexDefinition>> indexesByTable =
@@ -74,10 +77,9 @@ public class ForeignKeyIndexAudit {
                 .filter(fk -> indexesByTable
                         .getOrDefault(fk.tableName(), List.of()).stream()
                         .noneMatch(index -> covers(index, fk.columns())))
-                .map(fk -> "%s.%s  ->  FOREIGN KEY (%s) REFERENCES %s"
-                        .formatted(fk.tableName(), fk.constraintName(),
-                                String.join(", ", fk.columns()),
-                                fk.referencedTable()))
+                .<Finding>map(fk -> new ForeignKeyIndexFinding(fk.tableName(),
+                        fk.constraintName(), List.copyOf(fk.columns()),
+                        fk.referencedTable()))
                 .toList();
     }
 

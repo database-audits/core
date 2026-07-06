@@ -6,6 +6,8 @@ import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
 
+import io.github.databaseaudits.audit.finding.Finding;
+import io.github.databaseaudits.audit.finding.ForeignKeyTypeMismatchFinding;
 import io.github.databaseaudits.jdbc.CatalogQueries;
 import io.github.databaseaudits.platform.DatabasePlatform;
 import lombok.AllArgsConstructor;
@@ -38,29 +40,33 @@ public class ForeignKeyTypeMatchAudit {
     }
 
     /**
-     * Returns a description of every foreign key column whose declared type
-     * differs from its referenced column's, except the excluded ones; an empty
-     * list when every FK column matches.
+     * Returns one {@link Finding} for every foreign key column whose declared
+     * type differs from its referenced column's, except the excluded ones; an
+     * empty list when every FK column matches.
      *
      * @param schema
      *                            The schema to scan.
      * @param excludedColumns
      *                            The columns to skip, as {@code table.column}.
-     * @return One description per foreign key column whose type differs from
-     *         its referenced column's; an empty list when every column matches.
+     * @return One {@link Finding} per foreign key column whose type differs from
+     *         its referenced column's — its {@link Finding#description()
+     *         description} is the reported line; an empty list when every column
+     *         matches.
      */
-    public List<String> audit(final String schema,
+    public List<Finding> audit(final String schema,
             final Set<String> excludedColumns) {
         return catalogQueries.queryForList(sql(), schema).stream()
                 .filter(this::isMismatched)
                 .filter(r -> !excludedColumns.contains(
                         r.get("table_name") + "." + r.get("column_name")))
-                .map(r -> "%s.%s is %s but references %s.%s which is %s (%s)"
-                        .formatted(r.get("table_name"), r.get("column_name"),
-                                r.get("column_type"), r.get("referenced_table"),
-                                r.get("referenced_column"),
-                                r.get("referenced_type"),
-                                r.get("constraint_name")))
+                .<Finding>map(r -> new ForeignKeyTypeMismatchFinding(
+                        String.valueOf(r.get("table_name")),
+                        String.valueOf(r.get("column_name")),
+                        String.valueOf(r.get("column_type")),
+                        String.valueOf(r.get("referenced_table")),
+                        String.valueOf(r.get("referenced_column")),
+                        String.valueOf(r.get("referenced_type")),
+                        String.valueOf(r.get("constraint_name"))))
                 .toList();
     }
 

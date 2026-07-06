@@ -11,6 +11,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import org.jspecify.annotations.Nullable;
 
+import io.github.databaseaudits.audit.finding.Finding;
+import io.github.databaseaudits.audit.finding.PlanIndexFinding;
 import io.github.databaseaudits.capture.SqlCapturingStatementInspector;
 import io.github.databaseaudits.plan.QueryPlanExplainer;
 import lombok.AccessLevel;
@@ -84,7 +86,7 @@ abstract class CapturedSqlPlanAuditTemplate {
      *                                           statements were captured but
      *                                           none could be EXPLAINed.
      */
-    public final List<String> audit(final Set<String> excludedRelations,
+    public final List<Finding> audit(final Set<String> excludedRelations,
             final Collection<String> excludedSqlFragments) {
         queryPlanExplainer.requirePlanAuditSupport(getClass().getSimpleName());
 
@@ -167,10 +169,10 @@ abstract class CapturedSqlPlanAuditTemplate {
         }
     }
 
-    private List<String> findingsOf(final TreeMap<String, String> violations) {
+    private List<Finding> findingsOf(final TreeMap<String, String> violations) {
         return violations.entrySet().stream()
-                .map(violation -> violation.getValue() + "\n      "
-                        + violation.getKey())
+                .<Finding>map(violation -> new PlanIndexFinding(
+                        violation.getKey(), violation.getValue()))
                 .toList();
     }
 

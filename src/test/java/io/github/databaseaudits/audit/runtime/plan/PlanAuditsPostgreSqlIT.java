@@ -82,9 +82,9 @@ class PlanAuditsPostgreSqlIT {
                 new WhereClauseIndexAudit(queryPlanExplainer, capturer);
 
         assertThat(audit.audit(Set.of(), List.of()))
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .contains("Seq Scan on 'plan_flagged'"))
-                .noneSatisfy(violation -> assertThat(violation)
+                .noneSatisfy(violation -> assertThat(violation.description())
                         .contains("plan_indexed"));
         assertThat(audit.audit(Set.of("plan_flagged"), List.of())).isEmpty();
     }
@@ -96,9 +96,9 @@ class PlanAuditsPostgreSqlIT {
         final var audit = new OrderByIndexAudit(queryPlanExplainer, capturer);
 
         assertThat(audit.audit(Set.of(), List.of()))
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .contains("Sort under 'plan_flagged'"))
-                .noneSatisfy(violation -> assertThat(violation)
+                .noneSatisfy(violation -> assertThat(violation.description())
                         .contains("plan_indexed"));
         assertThat(audit.audit(Set.of(), List.of("from plan_flagged")))
                 .isEmpty();
@@ -120,9 +120,9 @@ class PlanAuditsPostgreSqlIT {
         final var audit = new JoinIndexAudit(queryPlanExplainer, capturer);
 
         assertThat(audit.audit(Set.of(), List.of()))
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .contains("on 'plan_flagged'"))
-                .noneSatisfy(violation -> assertThat(violation)
+                .noneSatisfy(violation -> assertThat(violation.description())
                         .contains("plan_indexed"));
         assertThat(audit.audit(Set.of("plan_flagged"), List.of())).isEmpty();
     }

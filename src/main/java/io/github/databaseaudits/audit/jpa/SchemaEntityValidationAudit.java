@@ -24,6 +24,11 @@ import org.hibernate.type.descriptor.jdbc.JdbcType;
 import org.hibernate.type.descriptor.jdbc.spi.JdbcTypeRegistry;
 import org.jspecify.annotations.Nullable;
 
+import io.github.databaseaudits.audit.finding.Finding;
+import io.github.databaseaudits.audit.finding.SchemaColumnMissingFinding;
+import io.github.databaseaudits.audit.finding.SchemaColumnTypeMismatchFinding;
+import io.github.databaseaudits.audit.finding.SchemaTableMissingFinding;
+
 import jakarta.persistence.EntityManagerFactory;
 
 /**
@@ -110,7 +115,7 @@ public class SchemaEntityValidationAudit {
      *                                   captured (so the audit cannot run), or the
      *                                   database metadata cannot be read.
      */
-    public List<String> audit() {
+    public List<Finding> audit() {
         return audit(Set.of());
     }
 
@@ -134,7 +139,7 @@ public class SchemaEntityValidationAudit {
      *                                   captured (so the audit cannot run), or the
      *                                   database metadata cannot be read.
      */
-    public List<String> audit(final Set<String> excludedRelations) {
+    public List<Finding> audit(final Set<String> excludedRelations) {
         final Metadata metadata = metadataSupplier.get();
         if (metadata == null) {
             throw new IllegalStateException(
@@ -151,7 +156,7 @@ public class SchemaEntityValidationAudit {
         final JdbcTypeRegistry jdbcTypeRegistry =
                 database.getTypeConfiguration().getJdbcTypeRegistry();
 
-        final List<String> violations = new ArrayList<>();
+        final List<Finding> violations = new ArrayList<>();
         try (Connection connection = dataSource.getConnection()) {
             final DatabaseMetaData databaseMetaData = connection.getMetaData();
             final String catalog = connection.getCatalog();
@@ -180,8 +185,8 @@ public class SchemaEntityValidationAudit {
                 final Map<String, DatabaseColumn> databaseColumns =
                         tablesInSchema.get(canonicalTable);
                 if (databaseColumns == null) {
-                    violations.add("missing table ["
-                            + qualifiedName(schema, tableName) + "]");
+                    violations.add(new SchemaTableMissingFinding(
+                            qualifiedName(schema, tableName)));
                     continue;
                 }
                 for (final Column column : table.getColumns()) {
@@ -195,20 +200,18 @@ public class SchemaEntityValidationAudit {
                     final DatabaseColumn databaseColumn =
                             databaseColumns.get(canonicalColumn);
                     if (databaseColumn == null) {
-                        violations.add("missing column [" + columnName
-                                + "] in table ["
-                                + qualifiedName(schema, tableName) + "]");
+                        violations.add(new SchemaColumnMissingFinding(
+                                qualifiedName(schema, tableName), columnName,
+                                column.getSqlType(metadata)
+                                        .toLowerCase(Locale.ROOT)));
                     } else if (!hasMatchingType(column, databaseColumn, metadata,
                             dialect, jdbcTypeRegistry)) {
-                        violations.add("wrong column type in column [" + columnName
-                                + "] in table ["
-                                + qualifiedName(schema, tableName) + "]; found ["
-                                + databaseColumn.typeName()
-                                        .toLowerCase(Locale.ROOT)
-                                + "], but expecting ["
-                                + column.getSqlType(metadata)
-                                        .toLowerCase(Locale.ROOT)
-                                + "]");
+                        violations.add(new SchemaColumnTypeMismatchFinding(
+                                qualifiedName(schema, tableName), columnName,
+                                databaseColumn.typeName()
+                                        .toLowerCase(Locale.ROOT),
+                                column.getSqlType(metadata)
+                                        .toLowerCase(Locale.ROOT)));
                     }
                 }
             }

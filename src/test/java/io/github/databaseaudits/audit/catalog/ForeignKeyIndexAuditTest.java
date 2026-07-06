@@ -121,7 +121,7 @@ class ForeignKeyIndexAuditTest {
 
         assertThat(auditUnderTest.audit("public", Set.of()))
                 .as("Unindexed composite FK should be reported.")
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .contains("child.fk_child_parent")
                         .contains("FOREIGN KEY (a, b) REFERENCES parent"));
     }

@@ -17,6 +17,8 @@ import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.junit.jupiter.api.Test;
 
+import io.github.databaseaudits.audit.finding.Finding;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -49,7 +51,7 @@ class SchemaEntityValidationAuditIT {
     void testAudit_MissingTable_ReportsMissingTable() throws SQLException {
         assertThat(auditAgainst(CLEAN_PARENT))
                 .as("Entity with no table should be reported as a missing table.")
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .as("A violation should name the missing child table.")
                         .contains("missing table").contains("child"));
     }
@@ -60,7 +62,7 @@ class SchemaEntityValidationAuditIT {
                 "CREATE TABLE parent (id BIGINT PRIMARY KEY, name VARCHAR(255))",
                 CLEAN_CHILD))
                 .as("Mapped column absent from the table should be reported.")
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .as("A violation should name the missing parent.quantity column.")
                         .contains("missing column").contains("quantity")
                         .contains("parent"));
@@ -72,7 +74,7 @@ class SchemaEntityValidationAuditIT {
                 "CREATE TABLE parent (id BIGINT PRIMARY KEY, name INTEGER, quantity INTEGER)",
                 CLEAN_CHILD))
                 .as("Column whose type differs from the mapping should be reported.")
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .as("A violation should name parent.name's wrong type.")
                         .contains("wrong column type").contains("name")
                         .contains("varchar"));
@@ -81,7 +83,7 @@ class SchemaEntityValidationAuditIT {
     @Test
     void testAudit_MultipleDriftsInOneSchema_ReportsThemAllAtOnce()
             throws SQLException {
-        final List<String> violations = auditAgainst(
+        final List<Finding> violations = auditAgainst(
                 "CREATE TABLE parent (id BIGINT PRIMARY KEY, name INTEGER)");
 
         assertThat(violations)
@@ -89,13 +91,13 @@ class SchemaEntityValidationAuditIT {
                         + "missing table, parent's missing quantity column, and "
                         + "parent.name's wrong type.")
                 .hasSize(3)
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .as("The missing child table should be among the violations.")
                         .contains("missing table").contains("child"))
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .as("The missing parent.quantity column should be among the violations.")
                         .contains("missing column").contains("quantity"))
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .as("The parent.name type mismatch should be among the violations.")
                         .contains("wrong column type").contains("name"));
     }
@@ -109,10 +111,10 @@ class SchemaEntityValidationAuditIT {
         assertThat(auditAgainst(parentWithWrongName))
                 .as("Without exclusions, the missing child table and the "
                         + "parent.name type mismatch are both reported.")
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .as("The missing child table is reported.")
                         .contains("missing table").contains("child"))
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .as("The parent.name type mismatch is reported.")
                         .contains("wrong column type").contains("name"));
 
@@ -176,12 +178,12 @@ class SchemaEntityValidationAuditIT {
                 .isNull();
     }
 
-    private static List<String> auditAgainst(final String... ddl)
+    private static List<Finding> auditAgainst(final String... ddl)
             throws SQLException {
         return auditAgainst(Set.of(), ddl);
     }
 
-    private static List<String> auditAgainst(final Set<String> excludedRelations,
+    private static List<Finding> auditAgainst(final Set<String> excludedRelations,
             final String... ddl) throws SQLException {
         final String url = "jdbc:h2:mem:jpa_audit_"
                 + DATABASE_COUNTER.incrementAndGet() + ";DB_CLOSE_DELAY=-1";

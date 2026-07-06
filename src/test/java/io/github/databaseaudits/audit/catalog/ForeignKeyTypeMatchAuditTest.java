@@ -94,10 +94,10 @@ class ForeignKeyTypeMatchAuditTest {
 
         assertThat(audit.audit("public", Set.of()))
                 .as("Mismatched FK column type should be reported.")
-                .anySatisfy(violation -> assertThat(violation).contains(
+                .anySatisfy(violation -> assertThat(violation.description()).contains(
                         "child.parent_id is integer but references parent.id which is bigint")
                         .contains("fk_child_parent"))
-                .noneSatisfy(violation -> assertThat(violation)
+                .noneSatisfy(violation -> assertThat(violation.description())
                         .contains("other_id"));
     }
 

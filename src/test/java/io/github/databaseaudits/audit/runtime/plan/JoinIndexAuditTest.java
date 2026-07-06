@@ -225,7 +225,7 @@ class JoinIndexAuditTest {
                 .when(explainer).planWith(anyString(), any(String[].class));
 
         assertThat(loopAudit.audit(Set.of(), List.of()))
-                .anySatisfy(violation -> assertThat(violation).contains(
+                .anySatisfy(violation -> assertThat(violation.description()).contains(
                         "Nested Loop with inner Seq Scan on 'customers' joining (o.customer_id = c.id)")
                         .contains(
                                 "select o.id from orders o join customers c on o.customer_id = c.id"));

@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
+import io.github.databaseaudits.audit.finding.Finding;
 import io.github.databaseaudits.capture.SqlCapturingStatementInspector;
 
 /**
@@ -25,8 +26,10 @@ class UnconditionalMutationAuditIT {
     void testAudit_UpdateOrDeleteWithoutWhere_ReportsThem() {
         capturer.inspect("delete from orders");
         capturer.inspect("update orders set total = 0");
-        assertThat(audit.audit(Set.of())).containsExactly("delete from orders",
-                "update orders set total = 0");
+        assertThat(audit.audit(Set.of())).extracting(Finding::description)
+                .as("Unconditional UPDATE and DELETE statements should be reported.")
+                .containsExactly("delete from orders",
+                        "update orders set total = 0");
     }
 
     @Test

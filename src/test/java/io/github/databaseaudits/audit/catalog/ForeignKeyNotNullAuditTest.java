@@ -14,6 +14,7 @@ import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
+import io.github.databaseaudits.audit.finding.Finding;
 import io.github.databaseaudits.jdbc.CatalogQueries;
 import io.github.databaseaudits.platform.DatabasePlatform;
 
@@ -67,7 +68,7 @@ class ForeignKeyNotNullAuditTest {
 
         assertThat(audit.audit("public", Set.of()))
                 .as("Nullable FK column should be reported with table, column, and constraint.")
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .contains("child.parent_id")
                         .contains("fk_child_parent")
                         .contains("is nullable"));
@@ -112,12 +113,12 @@ class ForeignKeyNotNullAuditTest {
                         nullableColumnRow("child", "fk_child_parent", "parent_id"),
                         nullableColumnRow("child", "fk_child_other", "other_id")));
 
-        final List<String> violations =
+        final List<Finding> violations =
                 audit.audit("public", Set.of("child.parent_id"));
         assertThat(violations)
                 .as("Only the non-excluded column should be reported.")
                 .hasSize(1)
-                .anySatisfy(v -> assertThat(v).contains("other_id"));
+                .anySatisfy(v -> assertThat(v.description()).contains("other_id"));
     }
 
     @Test

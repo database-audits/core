@@ -11,6 +11,7 @@ import org.junit.jupiter.params.Parameter;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import io.github.databaseaudits.audit.finding.Finding;
 import io.github.databaseaudits.catalog.IndexCatalog;
 import io.github.databaseaudits.fixture.DatabaseFixture;
 import io.github.databaseaudits.jdbc.CatalogQueries;
@@ -60,6 +61,7 @@ class CatalogAuditsIT {
         final String noPkTable = fixture.expectedIdentifier("no_pk_table");
 
         assertThat(audit.audit(fixture.schema(), Set.of()))
+                .extracting(Finding::description)
                 .as("Table without primary key should be reported.")
                 .contains(noPkTable);
         assertThat(audit.audit(fixture.schema(), Set.of(noPkTable)))
@@ -77,7 +79,7 @@ class CatalogAuditsIT {
         assertThat(audit.audit(fixture.schema(), Set.of()))
                 .as("Nullable FK column should be reported.")
                 .anySatisfy(
-                        violation -> assertThat(violation).contains(nullableFkColumn));
+                        violation -> assertThat(violation.description()).contains(nullableFkColumn));
         assertThat(audit.audit(fixture.schema(), Set.of(nullableFkColumn)))
                 .as("Excluding the column should produce no violations.")
                 .isEmpty();
@@ -93,7 +95,7 @@ class CatalogAuditsIT {
 
         assertThat(audit.audit(fixture.schema(), Set.of()))
                 .as("Leading-prefix duplicate index should be reported.")
-                .anySatisfy(violation -> assertThat(violation).contains(
+                .anySatisfy(violation -> assertThat(violation.description()).contains(
                         redundantIndex + " is covered by " + coveringIndex));
         assertThat(audit.audit(fixture.schema(), Set.of(redundantIndex)))
                 .as("Excluding the redundant index should produce no violations.")
@@ -117,13 +119,13 @@ class CatalogAuditsIT {
 
         assertThat(audit.audit(fixture.schema(), Set.of()))
                 .as("Mismatched FK column type should be reported.")
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .contains(mismatchedColumn)
                         .contains(fixture
                                 .expectedIdentifier("fk_type_mismatch_parent")))
-                .noneSatisfy(violation -> assertThat(violation).contains(
+                .noneSatisfy(violation -> assertThat(violation.description()).contains(
                         fixture.expectedIdentifier("fk_child_parent")))
-                .noneSatisfy(violation -> assertThat(violation).contains(
+                .noneSatisfy(violation -> assertThat(violation.description()).contains(
                         fixture.expectedIdentifier("fk_child_optional")));
         assertThat(audit.audit(fixture.schema(), Set.of(mismatchedColumn)))
                 .as("Excluding the mismatched column should produce no violations.")
@@ -149,13 +151,13 @@ class CatalogAuditsIT {
         if (fixture.fkIndexViolationPlanted()) {
             assertThat(audit.audit(fixture.schema(), Set.of()))
                     .as("Planted unindexed FK should be reported.")
-                    .anySatisfy(violation -> assertThat(violation)
+                    .anySatisfy(violation -> assertThat(violation.description())
                             .contains(fixture
                                     .expectedIdentifier("unindexed_fk_child"))
                             .contains(unindexedConstraint))
-                    .noneSatisfy(violation -> assertThat(violation).contains(
+                    .noneSatisfy(violation -> assertThat(violation.description()).contains(
                             fixture.expectedIdentifier("fk_child_parent")))
-                    .noneSatisfy(violation -> assertThat(violation).contains(
+                    .noneSatisfy(violation -> assertThat(violation.description()).contains(
                             fixture.expectedIdentifier("fk_child_optional")));
             assertThat(audit.audit(fixture.schema(), Set.of(unindexedConstraint)))
                     .as("Excluding the planted constraint should produce no violations.")

@@ -14,6 +14,7 @@ import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
+import io.github.databaseaudits.audit.finding.Finding;
 import io.github.databaseaudits.jdbc.CatalogQueries;
 import io.github.databaseaudits.platform.DatabasePlatform;
 
@@ -70,6 +71,7 @@ class PrimaryKeyPresenceAuditTest {
                 .thenReturn(List.of(tableRow("orders")));
 
         assertThat(audit.audit("public", Set.of()))
+                .extracting(Finding::description)
                 .as("Table missing a primary key should be reported by name.")
                 .containsExactly("orders");
     }
@@ -83,6 +85,7 @@ class PrimaryKeyPresenceAuditTest {
                 .thenReturn(List.of(tableRow("orders"), tableRow("items")));
 
         assertThat(audit.audit("public", Set.of()))
+                .extracting(Finding::description)
                 .as("Each table missing a primary key should be reported.")
                 .containsExactlyInAnyOrder("orders", "items");
     }
@@ -112,6 +115,7 @@ class PrimaryKeyPresenceAuditTest {
                         tableRow("databasechangelog")));
 
         assertThat(audit.audit("public", Set.of("databasechangelog")))
+                .extracting(Finding::description)
                 .as("Only the non-excluded table should be reported.")
                 .containsExactly("orders");
     }

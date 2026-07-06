@@ -156,7 +156,8 @@ class WhereClauseIndexAuditTest {
                 .when(explainer).planWith(anyString(), any(String[].class));
 
         assertThat(loopAudit.audit(Set.of(), List.of()))
-                .anySatisfy(violation -> assertThat(violation)
+                .as("An unindexed Seq Scan should be reported with its statement.")
+                .anySatisfy(violation -> assertThat(violation.description())
                         .contains("Seq Scan on 't' filtering (a = $1)")
                         .contains("select * from t where a = ?"));
     }

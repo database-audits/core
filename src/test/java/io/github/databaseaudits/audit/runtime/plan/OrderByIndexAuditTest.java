@@ -164,7 +164,7 @@ class OrderByIndexAuditTest {
                 .when(explainer).planWith(anyString(), any(String[].class));
 
         assertThat(loopAudit.audit(Set.of(), List.of()))
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .contains("Sort under 'orders' by created_at"));
 
         org.mockito.Mockito.verify(explainer).planWith(

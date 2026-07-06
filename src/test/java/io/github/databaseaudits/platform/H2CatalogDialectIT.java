@@ -34,7 +34,7 @@ class H2CatalogDialectIT {
 
         assertThat(audit.audit("PUBLIC", Set.of()))
                 .as("A DECIMAL(10,2) FK referencing a DECIMAL(5,0) key is a mismatch on H2, rendered with precision and scale.")
-                .anySatisfy(violation -> assertThat(violation)
+                .anySatisfy(violation -> assertThat(violation.description())
                         .contains("CHILD.PARENT_REF")
                         .contains("NUMERIC(10,2)")
                         .contains("NUMERIC(5,0)"));

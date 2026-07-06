@@ -3,6 +3,8 @@ package io.github.databaseaudits.audit.catalog;
 import java.util.List;
 import java.util.Set;
 
+import io.github.databaseaudits.audit.finding.Finding;
+import io.github.databaseaudits.audit.finding.MissingPrimaryKeyFinding;
 import io.github.databaseaudits.jdbc.CatalogQueries;
 import io.github.databaseaudits.platform.DatabasePlatform;
 import lombok.AllArgsConstructor;
@@ -39,20 +41,25 @@ public class PrimaryKeyPresenceAudit {
     }
 
     /**
-     * Returns the name of every base table with no {@code PRIMARY KEY}, except
-     * the excluded ones; an empty list when every table has one.
+     * Returns one {@link Finding} for every base table with no
+     * {@code PRIMARY KEY}, except the excluded ones; an empty list when every
+     * table has one.
      *
      * @param schema
      *                           The schema to scan.
      * @param excludedTables
-     *                           The table names to skip.
-     * @return The name of every base table with no {@code PRIMARY KEY}; an
-     *         empty list when every table has one.
+     *                           The table names to skip, matched
+     *                           case-insensitively (MySQL and MariaDB report
+     *                           unquoted table names in upper case).
+     * @return One {@link Finding} per base table with no {@code PRIMARY KEY} —
+     *         its {@link Finding#description() description} is the table name;
+     *         an empty list when every table has one.
      */
-    public List<String> audit(final String schema,
+    public List<Finding> audit(final String schema,
             final Set<String> excludedTables) {
         return catalogQueries.queryForList(sql(), schema).stream()
                 .map(r -> String.valueOf(r.get("table_name")))
-                .filter(t -> !excludedTables.contains(t)).toList();
+                .filter(t -> !excludedTables.contains(t))
+                .<Finding>map(MissingPrimaryKeyFinding::new).toList();
     }
 }

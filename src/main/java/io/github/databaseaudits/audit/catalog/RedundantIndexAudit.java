@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import io.github.databaseaudits.audit.finding.Finding;
+import io.github.databaseaudits.audit.finding.RedundantIndexFinding;
 import io.github.databaseaudits.catalog.IndexCatalog;
 import io.github.databaseaudits.catalog.IndexDefinition;
 import lombok.AllArgsConstructor;
@@ -38,21 +40,22 @@ public class RedundantIndexAudit {
     }
 
     /**
-     * Returns a description of every index made redundant by a wider one,
+     * Returns one {@link Finding} for every index made redundant by a wider one,
      * except the excluded ones; an empty list when no index is redundant.
      *
      * @param schema
      *                            The schema to scan.
      * @param excludedIndexes
      *                            The index names to skip.
-     * @return One description per index made redundant by a wider one; an empty
-     *         list when no index is redundant.
+     * @return One {@link Finding} per index made redundant by a wider one — its
+     *         {@link Finding#description() description} is the reported line; an
+     *         empty list when no index is redundant.
      */
-    public List<String> audit(final String schema,
+    public List<Finding> audit(final String schema,
             final Set<String> excludedIndexes) {
         return findRedundancies(indexCatalog.readAll(schema)).stream()
                 .filter(r -> !excludedIndexes.contains(r.redundantIndex()))
-                .map(r -> "%s.%s is covered by %s".formatted(r.tableName(),
+                .<Finding>map(r -> new RedundantIndexFinding(r.tableName(),
                         r.redundantIndex(), r.coveredBy()))
                 .toList();
     }

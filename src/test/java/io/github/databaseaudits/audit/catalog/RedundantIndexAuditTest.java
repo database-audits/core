@@ -122,7 +122,7 @@ class RedundantIndexAuditTest {
 
         assertThat(auditUnderTest.audit("public", Set.of()))
                 .as("Redundant index should be reported.")
-                .anySatisfy(violation -> assertThat(violation).contains(
+                .anySatisfy(violation -> assertThat(violation.description()).contains(
                         "orders.idx_customer is covered by idx_customer_created"));
         assertThat(auditUnderTest.audit("public", Set.of("idx_customer")))
                 .as("Excluding the redundant index should produce no violations.")

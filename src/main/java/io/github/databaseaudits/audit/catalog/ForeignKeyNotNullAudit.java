@@ -3,6 +3,8 @@ package io.github.databaseaudits.audit.catalog;
 import java.util.List;
 import java.util.Set;
 
+import io.github.databaseaudits.audit.finding.Finding;
+import io.github.databaseaudits.audit.finding.ForeignKeyNotNullFinding;
 import io.github.databaseaudits.jdbc.CatalogQueries;
 import io.github.databaseaudits.platform.DatabasePlatform;
 import lombok.AllArgsConstructor;
@@ -33,24 +35,26 @@ public class ForeignKeyNotNullAudit {
     }
 
     /**
-     * Returns a description of every nullable foreign key column, except the
-     * excluded ones; an empty list when every FK column is {@code NOT NULL}.
+     * Returns one {@link Finding} for every nullable foreign key column, except
+     * the excluded ones; an empty list when every FK column is {@code NOT NULL}.
      *
      * @param schema
      *                            The schema to scan.
      * @param excludedColumns
      *                            The columns to skip, as {@code table.column}.
-     * @return One description per nullable foreign key column; an empty list
-     *         when every foreign key column is {@code NOT NULL}.
+     * @return One {@link Finding} per nullable foreign key column — its
+     *         {@link Finding#description() description} is the reported line; an
+     *         empty list when every foreign key column is {@code NOT NULL}.
      */
-    public List<String> audit(final String schema,
+    public List<Finding> audit(final String schema,
             final Set<String> excludedColumns) {
         return catalogQueries.queryForList(sql(), schema).stream()
                 .filter(r -> !excludedColumns.contains(
                         r.get("table_name") + "." + r.get("column_name")))
-                .map(r -> "%s.%s (%s) is nullable".formatted(
-                        r.get("table_name"), r.get("column_name"),
-                        r.get("constraint_name")))
+                .<Finding>map(r -> new ForeignKeyNotNullFinding(
+                        String.valueOf(r.get("table_name")),
+                        String.valueOf(r.get("column_name")),
+                        String.valueOf(r.get("constraint_name"))))
                 .toList();
     }
 }

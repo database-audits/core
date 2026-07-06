@@ -5,6 +5,8 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import io.github.databaseaudits.audit.finding.Finding;
+import io.github.databaseaudits.audit.finding.UnconditionalMutationFinding;
 import io.github.databaseaudits.capture.SqlCapturingStatementInspector;
 import lombok.AllArgsConstructor;
 
@@ -32,22 +34,23 @@ public class UnconditionalMutationAudit {
     private final SqlCapturingStatementInspector sqlCapturer;
 
     /**
-     * Returns every captured {@code UPDATE}/{@code DELETE} with no
-     * {@code WHERE} clause (normalized), except the excluded statements; an
-     * empty list when none.
+     * Returns one {@link Finding} for every captured
+     * {@code UPDATE}/{@code DELETE} with no {@code WHERE} clause (normalized),
+     * except the excluded statements; an empty list when none.
      *
      * @param excludedStatements
      *                               The normalized statement texts to skip,
      *                               matched case-insensitively against the
      *                               normalized statement text.
-     * @return One normalized statement per captured unconditional
-     *         {@code UPDATE}/{@code DELETE}; an empty list when none.
+     * @return One {@link Finding} per captured unconditional
+     *         {@code UPDATE}/{@code DELETE} — its {@link Finding#description()
+     *         description} is the normalized statement; an empty list when none.
      * @throws IllegalStateException
      *                                   If nothing was captured, so the audit
      *                                   would otherwise report nothing
      *                                   vacuously.
      */
-    public List<String> audit(final Set<String> excludedStatements) {
+    public List<Finding> audit(final Set<String> excludedStatements) {
         final Set<String> capturedSql = sqlCapturer.capturedSql();
         if (capturedSql.isEmpty()) {
             throw new IllegalStateException(
@@ -60,7 +63,8 @@ public class UnconditionalMutationAudit {
                 .filter(this::isUnconditionalMutation)
                 .filter(sql -> !excludedLowerCased
                         .contains(sql.toLowerCase(Locale.ROOT)))
-                .distinct().sorted().toList();
+                .distinct().sorted()
+                .<Finding>map(UnconditionalMutationFinding::new).toList();
     }
 
     private boolean isUnconditionalMutation(final String normalizedSql) {
