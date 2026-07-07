@@ -113,6 +113,12 @@ mapping model, never the live schema.
 covering both entity associations and `@ElementCollection`s) for any fetched eagerly. Also needs no
 `DataSource`.
 
+**`UnmappedDatabaseObjectAudit`** is `SchemaEntityValidationAudit`'s mirror image: instead of checking every
+mapping exists in the schema, it checks the schema holds only what is mapped. It builds the mapped table/column
+sets from `Metadata.collectTableMappings()` (which includes Hibernate-generated join/collection tables, not just
+each entity's primary table) and diffs them against `DatabaseMetaData.getTables()`/`getColumns()`, scanning only
+schemas that contain at least one mapped table.
+
 == Exclusions
 
 Every audit accepts exclusion parameters so consumers suppress known-intentional violations rather than making

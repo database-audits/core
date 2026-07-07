@@ -1,6 +1,6 @@
 = Audits
 
-Seventeen audits organized into three families. Catalog and JPA audits run on every supported database platform;
+Eighteen audits organized into three families. Catalog and JPA audits run on every supported database platform;
 runtime audits split into two kinds — plan-based (PostgreSQL 16+ only) and capture-scan (every platform).
 
 Every `audit()` call returns a `List<Finding>` — empty when clean. Each `Finding` is a record
@@ -427,3 +427,27 @@ load`.
 
 *Fix:* Switch to `FetchType.LAZY`, and fetch eagerly only where a specific query genuinely needs the
 collection, via a fetch join or `@EntityGraph`.
+
+=== UnmappedDatabaseObjectAudit
+
+Every physical base table and column in the live schema should be mapped by a JPA entity — the reverse
+direction of `SchemaEntityValidationAudit`, which proves every mapping exists in the schema but nothing proves
+the schema holds only what is mapped. A leftover table keeps accumulating unowned data; a `NOT NULL` column with
+no default that no entity maps makes every entity `INSERT` against that table fail at runtime. Only schemas
+containing at least one mapped table are scanned, and only base tables (views are ignored). A
+Hibernate-generated join/collection table (`@JoinTable`, `@ElementCollection`'s `@CollectionTable`) counts as
+mapped. Pass a known, acceptable unmapped relation (a `table` name or `table.column`, optionally
+schema-qualified) as `excludedRelations` — for example migration-tool bookkeeping tables.
+
+[source,java]
+----
+List<Finding> findings = UnmappedDatabaseObjectAudit
+        .forEntityManagerFactory(entityManagerFactory, dataSource)
+        .audit(PrimaryKeyPresenceAudit.LIQUIBASE_BOOKKEEPING_TABLES);
+----
+
+*Finding:* e.g. `unmapped table [public.orphan_table] exists in the schema but no entity maps it`, or
+`unmapped column [tenant_id] in table [public.orders] — NOT NULL with no default breaks entity inserts`.
+
+*Fix:* Map the object, drop it via a migration, or exclude it (migration bookkeeping tables, deliberate
+denormalizations).
