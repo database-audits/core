@@ -18,9 +18,10 @@ public sealed interface Finding
         ForeignKeyNotNullFinding, ForeignKeyTypeMismatchFinding,
         MissingPrimaryKeyFinding, NarrowPrimaryKeyFinding,
         OffsetPaginationFinding, RedundantIndexFinding,
-        SchemaTableMissingFinding, SchemaColumnMissingFinding,
-        SchemaColumnTypeMismatchFinding, UnconditionalMutationFinding,
-        UniqueIndexNullableColumnFinding, PlanIndexFinding {
+        RepeatedStatementFinding, SchemaTableMissingFinding,
+        SchemaColumnMissingFinding, SchemaColumnTypeMismatchFinding,
+        UnconditionalMutationFinding, UniqueIndexNullableColumnFinding,
+        PlanIndexFinding {
     /**
      * Returns the human-readable description of this violation — the exact line
      * the audit reports.
