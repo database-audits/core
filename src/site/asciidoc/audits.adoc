@@ -1,9 +1,11 @@
 = Audits
 
 Ten audits organized into three families. Catalog and JPA audits run on every supported database platform;
-runtime audits are PostgreSQL 16+ only.
+runtime audits split into two kinds — plan-based (PostgreSQL 16+ only) and capture-scan (every platform).
 
-Every `audit()` call returns a `List<String>` of human-readable violation messages — empty when clean.
+Every `audit()` call returns a `List<Finding>` — empty when clean. Each `Finding` is a record
+(`io.github.databaseaudits.audit.finding`) carrying the structured facts behind the violation; its
+`description()` is the human-readable line shown throughout this page.
 
 [[catalog]]
 == Catalog audits
@@ -18,7 +20,7 @@ constant `LIQUIBASE_BOOKKEEPING_TABLES` is provided for the common case of exclu
 
 [source,java]
 ----
-List<String> findings = new PrimaryKeyPresenceAudit(queries, platform)
+List<Finding> findings = new PrimaryKeyPresenceAudit(queries, platform)
         .audit("my_schema", PrimaryKeyPresenceAudit.LIQUIBASE_BOOKKEEPING_TABLES);
 ----
 
@@ -38,7 +40,7 @@ audit usually passes there, though it still catches an index dropped after the f
 
 [source,java]
 ----
-List<String> findings = new ForeignKeyIndexAudit(queries, indexes, platform)
+List<Finding> findings = new ForeignKeyIndexAudit(queries, indexes, platform)
         .audit("my_schema", Set.of("fk_legacy_unindexed_constraint"));
 ----
 
@@ -57,7 +59,7 @@ identifiers in `table.column` format to skip as `excludedColumns`. Composite FKs
 
 [source,java]
 ----
-List<String> findings = new ForeignKeyNotNullAudit(queries, platform)
+List<Finding> findings = new ForeignKeyNotNullAudit(queries, platform)
         .audit("my_schema", Set.of("orders.optional_partner_id"));
 ----
 
@@ -78,7 +80,7 @@ format to skip as `excludedColumns`.
 
 [source,java]
 ----
-List<String> findings = new ForeignKeyTypeMatchAudit(queries, platform)
+List<Finding> findings = new ForeignKeyTypeMatchAudit(queries, platform)
         .audit("my_schema", Set.of());
 ----
 
@@ -99,7 +101,7 @@ unique, partial, and expression indexes. Pass index names to skip as `excludedIn
 
 [source,java]
 ----
-List<String> findings = new RedundantIndexAudit(indexes)
+List<Finding> findings = new RedundantIndexAudit(indexes)
         .audit("my_schema", Set.of("idx_orders_customer_legacy"));
 ----
 
@@ -115,14 +117,20 @@ redundancy is intentional (for example, a collation-specific index).
 [[runtime]]
 == Runtime audits
 
-Runtime audits intercept every SQL statement Hibernate executes and analyze it via `EXPLAIN (GENERIC_PLAN,
-FORMAT JSON)`. They are *PostgreSQL 16+ only* and require `preferQueryMode=simple` on the JDBC URL. They throw
-`UnsupportedOperationException` on any other platform and `IllegalStateException` when the SQL capture is empty.
-
-See link:usage.html#runtime-audits-postgresql-16-only[Usage — Runtime audits] for wiring
+Runtime audits intercept every SQL statement Hibernate executes via `SqlCapturingStatementInspector`, then
+inspect it one of two ways: <<runtime-plan,plan-based>> audits analyze it via `EXPLAIN (GENERIC_PLAN,
+FORMAT JSON)` and are *PostgreSQL 16+ only*; <<runtime-capture,capture-scan>> audits scan the captured SQL
+*text* directly and run on every supported platform. See
+link:usage.html#runtime-audits-postgresql-16-only[Usage — Runtime audits] for wiring
 `SqlCapturingStatementInspector` and ordering the workload.
 
-=== WhereClauseIndexAudit
+[[runtime-plan]]
+=== Plan-based runtime audits (PostgreSQL 16+ only)
+
+These require `preferQueryMode=simple` on the JDBC URL. They throw `UnsupportedOperationException` on any
+other platform and `IllegalStateException` when the SQL capture is empty.
+
+==== WhereClauseIndexAudit
 
 Every `SELECT`, `UPDATE`, or `DELETE` with a `WHERE` clause should have at least one indexed predicate
 covering the access path on the filtered table. Under `SET enable_seqscan = off`, a `Seq Scan` that still
@@ -134,7 +142,7 @@ to skip specific statements.
 
 [source,java]
 ----
-List<String> findings = new WhereClauseIndexAudit(explainer, inspector)
+List<Finding> findings = new WhereClauseIndexAudit(explainer, inspector)
         .audit(
             Set.of("audit_log"),                              // skip this table
             List.of("where status = 'LEGACY'")               // skip statements containing this
@@ -150,7 +158,7 @@ Seq Scan on 'orders' filtering (status = $1)
 
 *Fix:* Add an index on the filtered column(s), or exclude the relation or SQL fragment.
 
-=== OrderByIndexAudit
+==== OrderByIndexAudit
 
 Every `ORDER BY` should be servable by an index (no explicit sorts). Under `SET enable_sort = off`, a `Sort`
 or `Incremental Sort` that survives means no index can provide the ordering. Advisory — sorts over aggregates,
@@ -159,7 +167,7 @@ pagination over large tables (`ORDER BY … LIMIT`).
 
 [source,java]
 ----
-List<String> findings = new OrderByIndexAudit(explainer, inspector)
+List<Finding> findings = new OrderByIndexAudit(explainer, inspector)
         .audit(
             Set.of("lookup_values"),                          // skip this small static table
             List.of("group by")                              // skip aggregate queries
@@ -176,7 +184,7 @@ Sort under 'orders' by (created_at DESC)
 *Fix:* Add an index matching the `ORDER BY` columns (including ASC/DESC and NULLS order), or exclude the
 relation or SQL fragment.
 
-=== JoinIndexAudit
+==== JoinIndexAudit
 
 Every `JOIN` should be servable through an index on the join key of at least one side. Under
 `SET enable_seqscan = off, enable_hashjoin = off, enable_mergejoin = off`, the planner is steered toward a
@@ -186,7 +194,7 @@ Nested Loop with an inner Seq Scan that survives the penalty proves no index can
 
 [source,java]
 ----
-List<String> findings = new JoinIndexAudit(explainer, inspector)
+List<Finding> findings = new JoinIndexAudit(explainer, inspector)
         .audit(
             Set.of("lookup_values"),                         // skip this small static table
             List.of()
@@ -208,7 +216,13 @@ Nested Loop with inner Seq Scan on 'orders' joining (order_items.order_id = orde
 
 *Fix:* Add an index on the joined column(s), or exclude the relation or SQL fragment.
 
-=== UnconditionalMutationAudit
+[[runtime-capture]]
+=== Capture-scan runtime audits (all platforms)
+
+These scan the captured SQL *text* directly — no `EXPLAIN`, no platform restriction. They throw
+`IllegalStateException` when the SQL capture is empty.
+
+==== UnconditionalMutationAudit
 
 No `UPDATE` or `DELETE` may run without a `WHERE` clause. An unconditional mutation rewrites or wipes an entire
 table — an accidental derived-delete, a `@Modifying @Query` missing its predicate, or a full-table fixture
@@ -217,7 +231,7 @@ Pass normalized statement strings to `excludedStatements` to skip deliberate ful
 
 [source,java]
 ----
-List<String> findings = new UnconditionalMutationAudit(inspector)
+List<Finding> findings = new UnconditionalMutationAudit(inspector)
         .audit(Set.of("delete from schema_version"));
 ----
 
@@ -245,7 +259,7 @@ captured during bootstrap by a `MappingMetadataIntegrator` (auto-registered via 
 
 [source,java]
 ----
-List<String> findings =
+List<Finding> findings =
     SchemaEntityValidationAudit.forEntityManagerFactory(entityManagerFactory, dataSource).audit();
 ----
 

@@ -6,9 +6,11 @@
 constructor arguments, so any container (Spring, Guice, plain `new`) can wire it. The Spring integration lives
 in `database-audits-spring-boot`, which wires everything with explicit `@Bean` methods.
 
-**Audits return findings; callers assert.** Every `audit()` method returns a `List<String>` of human-readable
-violation messages — empty when clean — and the calling test makes the assertions (typically with AssertJ). This
-means AssertJ is test-scoped only, never a compile or runtime dependency of the library.
+**Audits return findings; callers assert.** Every `audit()` method returns a `List<Finding>` — empty when clean.
+Each `Finding` (`io.github.databaseaudits.audit.finding`) is a record carrying the structured facts behind the
+violation plus a `description()` that is the human-readable line; the calling test makes the assertions
+(typically with AssertJ, via `Finding::description`). This means AssertJ is test-scoped only, never a compile or
+runtime dependency of the library.
 
 **Never pass vacuously.** A run that could not actually check anything throws rather than returning a
 clean-looking empty list. Runtime audits throw `IllegalStateException` on an empty SQL capture and on a

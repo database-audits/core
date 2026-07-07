@@ -7,10 +7,13 @@ step-by-step for each family.
 == The shape of every audit
 
 An audit is a plain class — constructor injection, no dependency-injection annotations — whose `audit(...)`
-method **returns a `List<String>` of human-readable violations, empty when clean**. The audit never asserts and
-never throws for a *finding*; the caller asserts. It throws only when it could not actually check anything (an
-empty SQL capture, an unsupported platform), so a misconfigured run fails loudly instead of passing vacuously.
-See *"Audits return findings; callers assert."* and *"Never pass vacuously."* in link:architecture.html[Architecture].
+method **returns a `List<Finding>`, empty when clean**. Each `Finding` (`io.github.databaseaudits.audit.finding`)
+is a record carrying the structured facts behind the violation plus a `description()` that is the exact
+human-readable line the audit historically emitted. The audit never asserts and never throws for a *finding*; the
+caller asserts on the returned list (typically via `Finding::description`). It throws only when it could not
+actually check anything (an empty SQL capture, an unsupported platform), so a misconfigured run fails loudly
+instead of passing vacuously. See *"Audits return findings; callers assert."* and *"Never pass vacuously."* in
+link:architecture.html[Architecture].
 
 Pick the family your check belongs to — each has a recipe below:
 
@@ -42,10 +45,11 @@ public class XxxAudit {
     }
 
     /** Returns one finding per offending row; an empty list when clean. */
-    public List<String> audit(final String schema, final Set<String> excluded) {
+    public List<Finding> audit(final String schema, final Set<String> excluded) {
         return catalogQueries.queryForList(sql(), schema).stream()
                 .map(row -> String.valueOf(row.get("some_column")))
                 .filter(finding -> !excluded.contains(finding))
+                .<Finding>map(XxxFinding::new)
                 .toList();
     }
 }
@@ -57,6 +61,25 @@ link:adding-a-database.html#step-dialect[Adding a Database — Step 1]). Read re
 case-insensitively*. Index-based audits (`ForeignKeyIndexAudit`, `RedundantIndexAudit`) take `IndexCatalog`
 instead of writing their own SQL, and do the leading-prefix / containment comparison in plain Java where it is
 unit-testable and platform-independent.
+
+Every audit needs a finding record: a small class in `io.github.databaseaudits.audit.finding` implementing
+`Finding`, added to `Finding`'s `permits` list, carrying the structured fields a fix generator needs plus a
+`description()` returning the exact reported line:
+
+[source,java]
+----
+public record XxxFinding(String someColumn) implements Finding {
+    @Override
+    public String description() {
+        return someColumn;
+    }
+}
+----
+
+Because `Finding` is `sealed`, adding a new record to its `permits` list is a compile error everywhere an
+exhaustive `switch` covers it — including the Spring module's `FixRenderer`, which must gain a `case` for the new
+finding before that module compiles again. That compile failure is the intended signal to do the Phase 5-style
+lockstep update, not a bug to work around.
 
 [#plan]
 == Runtime plan audit (PostgreSQL-only)
@@ -113,12 +136,12 @@ Guard the empty capture yourself so the audit never passes vacuously:
 
 [source,java]
 ----
-public List<String> audit(final Set<String> excludedStatements) {
+public List<Finding> audit(final Set<String> excludedStatements) {
     final Set<String> captured = sqlCapturer.capturedSql();
     if (captured.isEmpty()) {
         throw new IllegalStateException(SqlCapturingStatementInspector.EMPTY_CAPTURE_MESSAGE);
     }
-    return captured.stream()...toList();
+    return captured.stream()...<Finding>map(XxxFinding::new).toList();
 }
 ----
 
@@ -146,7 +169,8 @@ assertion, so the two stay in step.
 == Tests
 
 * A **`<Audit>Test`** unit test over the finding logic — feed rows (catalog), plan JSON (plan), or captured
-  statements (capture) and assert the returned `List<String>`. Assert whole lists with AssertJ.
+  statements (capture) and assert the returned `List<Finding>` (typically via
+  `.extracting(Finding::description)`). Assert whole lists with AssertJ.
 * For a catalog audit, an **`…IT`** against a real engine (as the dialect ITs do) proves the SQL and the mapping
   agree end-to-end.
 * Cover both a clean run (empty list) and the cannot-run guard (the thrown `IllegalStateException` /
@@ -154,7 +178,8 @@ assertion, so the two stay in step.
 
 == Checklist
 
-* [ ] Audit class in the right `audit.*` package, returning `List<String>`, throwing only on a cannot-run condition.
+* [ ] Audit class in the right `audit.*` package, returning `List<Finding>`, throwing only on a cannot-run condition.
+* [ ] A `Finding` record for the new violation kind, added to `Finding`'s `permits` list.
 * [ ] Any new `CatalogDialect` method (abstract vs default chosen per <<catalog>>).
 * [ ] Unit test, and an IT where the audit runs real SQL; clean *and* cannot-run cases covered.
 * [ ] link:audits.html[Audits] reference entry for the new audit (what it detects, finding format, exclusion type).
