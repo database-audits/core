@@ -1,6 +1,6 @@
 = Audits
 
-Sixteen audits organized into three families. Catalog and JPA audits run on every supported database platform;
+Seventeen audits organized into three families. Catalog and JPA audits run on every supported database platform;
 runtime audits split into two kinds — plan-based (PostgreSQL 16+ only) and capture-scan (every platform).
 
 Every `audit()` call returns a `List<Finding>` — empty when clean. Each `Finding` is a record
@@ -407,3 +407,23 @@ List<Finding> findings = MissingVersionAttributeAudit
 overwrite each other`.
 
 *Fix:* Add a `@Version` attribute, or exclude the entity if it is genuinely append-only or single-writer.
+
+=== EagerCollectionFetchAudit
+
+Every mapped collection should be fetched lazily. `@OneToMany`/`@ManyToMany(fetch = EAGER)` (also the JPA
+default for `@ElementCollection`) loads the collection on *every* load of its owning entity — multiplying rows
+through a join or firing an extra query per owner, compounding across every entity that reaches the collection.
+Pass a deliberately eager collection's Hibernate role (e.g. `com.acme.Order.items`) to skip as `excludedRoles`.
+
+[source,java]
+----
+List<Finding> findings = EagerCollectionFetchAudit
+        .forEntityManagerFactory(entityManagerFactory)
+        .audit(Set.of());
+----
+
+*Finding:* e.g. `com.acme.Order.items (collection table order_items) is fetched eagerly — loaded on every owner
+load`.
+
+*Fix:* Switch to `FetchType.LAZY`, and fetch eagerly only where a specific query genuinely needs the
+collection, via a fetch join or `@EntityGraph`.
