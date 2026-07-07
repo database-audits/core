@@ -14,7 +14,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import io.github.databaseaudits.capture.SqlCapturingStatementInspector;
+import io.github.databaseaudits.catalog.ForeignKeyCatalog;
+import io.github.databaseaudits.catalog.IndexCatalog;
 import io.github.databaseaudits.fixture.DatabaseContainers;
+import io.github.databaseaudits.jdbc.CatalogQueries;
 import io.github.databaseaudits.platform.DatabasePlatform;
 import io.github.databaseaudits.plan.QueryPlanExplainer;
 
@@ -68,6 +71,13 @@ class PlanAuditsPostgreSqlIT {
                     "CREATE INDEX idx_plan_indexed_data ON plan_indexed(data_value)");
             statement.execute(
                     "CREATE INDEX idx_plan_indexed_sort ON plan_indexed(sort_value)");
+            // enough rows that an equality predicate on data_value is
+            // selective, so UnusedIndexAudit's unpenalized natural plan
+            // actually picks idx_plan_indexed_data over a Seq Scan - an empty
+            // table's natural plan prefers Seq Scan regardless of indexes
+            statement.execute(
+                    "INSERT INTO plan_indexed (id, data_value, sort_value) "
+                            + "SELECT i, i, i FROM generate_series(1, 1000) AS s(i)");
             // deterministic planner statistics for the generic plans
             statement.execute("ANALYZE plan_flagged");
             statement.execute("ANALYZE plan_indexed");
@@ -125,5 +135,32 @@ class PlanAuditsPostgreSqlIT {
                 .noneSatisfy(violation -> assertThat(violation.description())
                         .contains("plan_indexed"));
         assertThat(audit.audit(Set.of("plan_flagged"), List.of())).isEmpty();
+    }
+
+    /**
+     * {@code plan_indexed} carries two indexes; only {@code idx_plan_indexed_data}
+     * is ever used by the captured workload, so {@code idx_plan_indexed_sort}
+     * is the one this audit must report. These tables are the only ones in
+     * {@code public} — {@link io.github.databaseaudits.audit.catalog.CatalogAuditsIT}
+     * uses the isolated {@code audit_violations} schema.
+     */
+    @Test
+    void testAudit_IndexNoCapturedStatementUses_ReportedThenEmptyWhenExcluded() {
+        capturer.inspect("select * from plan_indexed where data_value = ?");
+        final var catalogQueries = new CatalogQueries(DATA_SOURCE);
+        final var indexCatalog =
+                new IndexCatalog(catalogQueries, DatabasePlatform.POSTGRESQL);
+        final var foreignKeyCatalog = new ForeignKeyCatalog(catalogQueries,
+                DatabasePlatform.POSTGRESQL);
+        final var audit = new UnusedIndexAudit(queryPlanExplainer, capturer,
+                indexCatalog, foreignKeyCatalog);
+
+        assertThat(audit.audit("public", Set.of()))
+                .anySatisfy(violation -> assertThat(violation.description())
+                        .contains("plan_indexed.idx_plan_indexed_sort"))
+                .noneSatisfy(violation -> assertThat(violation.description())
+                        .contains("idx_plan_indexed_data"));
+        assertThat(audit.audit("public", Set.of("idx_plan_indexed_sort")))
+                .isEmpty();
     }
 }

@@ -15,6 +15,7 @@ final class PlanJson {
     // EXPLAIN JSON field names.
     static final String NODE_TYPE = "Node Type";
     static final String RELATION_NAME = "Relation Name";
+    static final String INDEX_NAME = "Index Name";
     static final String PLANS = "Plans";
     static final String PARENT_RELATIONSHIP = "Parent Relationship";
     static final String FILTER = "Filter";

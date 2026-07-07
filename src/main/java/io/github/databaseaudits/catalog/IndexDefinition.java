@@ -1,5 +1,6 @@
 package io.github.databaseaudits.catalog;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -37,5 +38,20 @@ public record IndexDefinition(String tableName, String indexName,
      */
     public boolean hasExpressionColumn() {
         return columns.stream().anyMatch(Objects::isNull);
+    }
+
+    /**
+     * Whether this index's leading key columns cover the given columns in any
+     * order — the rule for an index supporting a foreign key. A partial index
+     * never covers; an expression part (null column) never matches.
+     *
+     * @param columns
+     *                    The columns to cover.
+     * @return {@code true} if the leading key columns cover {@code columns}.
+     */
+    public boolean leadingColumnsCover(final List<String> columns) {
+        return !partial && this.columns.size() >= columns.size()
+                && new HashSet<>(this.columns.subList(0, columns.size()))
+                        .containsAll(columns);
     }
 }
