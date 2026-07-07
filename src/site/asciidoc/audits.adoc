@@ -1,6 +1,6 @@
 = Audits
 
-Fifteen audits organized into three families. Catalog and JPA audits run on every supported database platform;
+Sixteen audits organized into three families. Catalog and JPA audits run on every supported database platform;
 runtime audits split into two kinds — plan-based (PostgreSQL 16+ only) and capture-scan (every platform).
 
 Every `audit()` call returns a `List<Finding>` — empty when clean. Each `Finding` is a record
@@ -361,7 +361,7 @@ executed 137 times: select i1_0.id, i1_0.order_id from order_items i1_0 where i1
 `hibernate.default_batch_fetch_size`, or exclude the statement if the repetition is deliberate.
 
 [[jpa]]
-== JPA audit
+== JPA audits
 
 === SchemaEntityValidationAudit
 
@@ -386,3 +386,24 @@ table [public.parent]; found [integer], but expecting [varchar(255)]`.
 *Fix:* Reconcile the entity mappings with the Liquibase-built schema (whichever drifted), or pass a known,
 acceptable mismatch as an excluded relation (a `table` name or `table.column`, optionally schema-qualified as
 `schema.table` / `schema.table.column`) to `audit(Set<String>)`.
+
+=== MissingVersionAttributeAudit
+
+Every mutable root entity should carry a `@Version` attribute. A mutable entity with no optimistic-locking
+version lets concurrent transactions silently overwrite each other's changes (a lost update). Versioning is
+declared on the inheritance hierarchy's root, so only root entities are checked; an `@Immutable` entity is
+skipped, since it cannot lose an update it never receives. Advisory: append-only or single-writer entities are
+legitimate exclusions. Pass entities to skip as `excludedEntities` — fully-qualified name, simple name, or
+physical table name, matched case-insensitively.
+
+[source,java]
+----
+List<Finding> findings = MissingVersionAttributeAudit
+        .forEntityManagerFactory(entityManagerFactory)
+        .audit(Set.of("ReferenceData"));
+----
+
+*Finding:* e.g. `com.acme.Order (table orders) has no @Version attribute — concurrent updates can silently
+overwrite each other`.
+
+*Fix:* Add a `@Version` attribute, or exclude the entity if it is genuinely append-only or single-writer.
