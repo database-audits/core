@@ -23,9 +23,10 @@ import io.github.databaseaudits.platform.DatabasePlatform;
  * {@link #createViolationSchema()} plants every auditable catalog violation: a
  * table with no primary key, a nullable foreign key column, a leading-prefix
  * redundant index pair, a foreign key column whose declared type differs from
- * its referenced column's, and (where the platform permits one to exist) a
- * foreign key with no supporting index. The container-backed fixtures require
- * Docker and fail rather than skip without it (see {@link DatabaseContainers}).
+ * its referenced column's, a relationship enforced by two duplicate foreign
+ * key constraints, and (where the platform permits one to exist) a foreign
+ * key with no supporting index. The container-backed fixtures require Docker
+ * and fail rather than skip without it (see {@link DatabaseContainers}).
  */
 public enum DatabaseFixture {
     /**
@@ -102,6 +103,11 @@ public enum DatabaseFixture {
                     "CREATE INDEX idx_child_parent   ON child(parent_id)");
             statement.execute(
                     "CREATE INDEX idx_child_optional ON child(optional_parent_id)");
+            // also index the duplicate-FK table's shared column, so the
+            // ForeignKeyIndexAudit/RedundantIndexAudit fixtures stay
+            // unaffected by the newly planted duplicate-FK violation
+            statement.execute(
+                    "CREATE INDEX idx_duplicate_fk_child ON duplicate_fk_child(parent_id)");
             // PostgreSQL permits an integer FK referencing the bigint
             // parent(id) — the planted type mismatch
             // (indexed explicitly so the FK-index audit keeps reporting only
@@ -291,6 +297,16 @@ public enum DatabaseFixture {
                                 id        BIGINT PRIMARY KEY,
                                 parent_id BIGINT NOT NULL,
                                 CONSTRAINT fk_unindexed_child_parent FOREIGN KEY (parent_id) REFERENCES parent(id)
+                            )""");
+            // two constraints enforcing the same relationship -> the planted
+            // duplicate-FK violation
+            statement.execute(
+                    """
+                            CREATE TABLE duplicate_fk_child (
+                                id        BIGINT PRIMARY KEY,
+                                parent_id BIGINT NOT NULL,
+                                CONSTRAINT fk_duplicate_child_parent   FOREIGN KEY (parent_id) REFERENCES parent(id),
+                                CONSTRAINT fk_duplicate_child_parent_2 FOREIGN KEY (parent_id) REFERENCES parent(id)
                             )""");
             plantPlatformSpecifics(statement);
         }

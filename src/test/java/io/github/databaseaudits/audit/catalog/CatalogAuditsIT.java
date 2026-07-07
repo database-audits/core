@@ -12,6 +12,7 @@ import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import io.github.databaseaudits.audit.finding.Finding;
+import io.github.databaseaudits.catalog.ForeignKeyCatalog;
 import io.github.databaseaudits.catalog.IndexCatalog;
 import io.github.databaseaudits.fixture.DatabaseFixture;
 import io.github.databaseaudits.jdbc.CatalogQueries;
@@ -45,6 +46,10 @@ class CatalogAuditsIT {
 
     private IndexCatalog indexCatalog() {
         return new IndexCatalog(catalogQueries(), fixture.platform());
+    }
+
+    private ForeignKeyCatalog foreignKeyCatalog() {
+        return new ForeignKeyCatalog(catalogQueries(), fixture.platform());
     }
 
     @Test
@@ -167,5 +172,27 @@ class CatalogAuditsIT {
                     .as("No FK index violations expected on this platform.")
                     .isEmpty();
         }
+    }
+
+    @Test
+    void testDuplicateForeignKeyAudit_DuplicateFkPair_ReportedThenEmptyWhenExcluded() {
+        final var audit = new DuplicateForeignKeyAudit(foreignKeyCatalog());
+        final String duplicateConstraint =
+                fixture.expectedIdentifier("fk_duplicate_child_parent");
+        final String duplicateConstraint2 =
+                fixture.expectedIdentifier("fk_duplicate_child_parent_2");
+
+        assertThat(audit.audit(fixture.schema(), Set.of()))
+                .as("The duplicate FK pair should be reported, naming both constraints.")
+                .anySatisfy(violation -> assertThat(violation.description())
+                        .contains(fixture
+                                .expectedIdentifier("duplicate_fk_child"))
+                        .contains(duplicateConstraint)
+                        .contains(duplicateConstraint2))
+                .noneSatisfy(violation -> assertThat(violation.description()).contains(
+                        fixture.expectedIdentifier("fk_child_parent")));
+        assertThat(audit.audit(fixture.schema(), Set.of(duplicateConstraint2)))
+                .as("Excluding one of the duplicate pair should produce no violations.")
+                .isEmpty();
     }
 }
