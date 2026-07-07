@@ -109,6 +109,10 @@ model from a `MappingMetadataIntegrator` captured during bootstrap, plus a `Data
 `@Version` attribute — a lost-update risk under concurrent transactions. It needs no `DataSource`: only the
 mapping model, never the live schema.
 
+**`EagerCollectionFetchAudit`** walks the boot mapping model's collection bindings (`org.hibernate.mapping.Collection`,
+covering both entity associations and `@ElementCollection`s) for any fetched eagerly. Also needs no
+`DataSource`.
+
 == Exclusions
 
 Every audit accepts exclusion parameters so consumers suppress known-intentional violations rather than making
