@@ -105,6 +105,10 @@ missing table, missing column, and incompatible column type in one run (using Hi
 rule). It runs under `ddl-auto=none` — not Hibernate's fail-fast `ddl-auto=validate` — obtaining the boot mapping
 model from a `MappingMetadataIntegrator` captured during bootstrap, plus a `DataSource` to read the live schema.
 
+**`MissingVersionAttributeAudit`** walks the same boot mapping model for mutable root entities with no
+`@Version` attribute — a lost-update risk under concurrent transactions. It needs no `DataSource`: only the
+mapping model, never the live schema.
+
 == Exclusions
 
 Every audit accepts exclusion parameters so consumers suppress known-intentional violations rather than making
