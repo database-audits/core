@@ -1,6 +1,6 @@
 = Audits
 
-Fourteen audits organized into three families. Catalog and JPA audits run on every supported database platform;
+Fifteen audits organized into three families. Catalog and JPA audits run on every supported database platform;
 runtime audits split into two kinds — plan-based (PostgreSQL 16+ only) and capture-scan (every platform).
 
 Every `audit()` call returns a `List<Finding>` — empty when clean. Each `Finding` is a record
@@ -333,6 +333,32 @@ select o1_0.id, o1_0.status from orders o1_0 order by o1_0.created_at desc limit
 
 *Fix:* Switch to keyset (seek) pagination (`WHERE (sort_key, id) > (?, ?) ORDER BY sort_key, id LIMIT ?`), or
 exclude the statement if the pagination is deliberately shallow and bounded.
+
+==== RepeatedStatementAudit
+
+Advisory: no captured `SELECT` (or `WITH` CTE query) shape should run at least as many times as a given
+threshold — the signature of an N+1 statement burst (one parent query followed by one identical-shaped child
+`SELECT` per row). Reads
+`SqlCapturingStatementInspector.executionCounts()`, aggregating raw statement variants that normalize
+identically. Counts accumulate for the capturer's whole lifetime, so for a sharp signal call
+`inspector.clear()` before a representative workload and audit right after; choose a threshold above the
+workload's largest expected collection size (a generous threshold like 50 works well as a regression tripwire).
+Pass legitimately hot statements' SQL fragments to skip as `excludedSqlFragments`.
+
+[source,java]
+----
+List<Finding> findings = new RepeatedStatementAudit(inspector)
+        .audit(50, List.of());
+----
+
+*Finding format:* the count and the normalized statement — for example:
+
+----
+executed 137 times: select i1_0.id, i1_0.order_id from order_items i1_0 where i1_0.order_id = ?
+----
+
+*Fix:* Eliminate the N+1 with a fetch join, `@EntityGraph`, or `@BatchSize`/
+`hibernate.default_batch_fetch_size`, or exclude the statement if the repetition is deliberate.
 
 [[jpa]]
 == JPA audit

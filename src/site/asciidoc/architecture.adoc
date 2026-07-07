@@ -61,8 +61,8 @@ a dedicated query. It is the shared building block for `DuplicateForeignKeyAudit
 
 == Runtime family
 
-Five audits that inspect the *real SQL Hibernate executed* during the test run, via
-`SqlCapturingStatementInspector`. Three are <<plan-based>> (PostgreSQL 16+ only, via `EXPLAIN`); two are
+Six audits that inspect the *real SQL Hibernate executed* during the test run, via
+`SqlCapturingStatementInspector`. Three are <<plan-based>> (PostgreSQL 16+ only, via `EXPLAIN`); three are
 <<capture-scan>> (every platform, token-scanning the captured SQL text).
 
 === SQL capture
@@ -90,10 +90,13 @@ Subclasses supply which statements to EXPLAIN, which GUCs to penalize, and how t
 [[capture-scan]]
 === Capture-scan audits (every platform)
 
-These two need no `EXPLAIN` and no PostgreSQL-specific technique — they token-scan the normalized captured SQL
+These three need no `EXPLAIN` and no PostgreSQL-specific technique — they token-scan the normalized captured SQL
 text directly. **`UnconditionalMutationAudit`** scans for `UPDATE`/`DELETE` without `WHERE`.
 **`OffsetPaginationAudit`** scans for `OFFSET`-based pagination (or MySQL/MariaDB's comma
-`LIMIT <offset>, <count>` form), which scales linearly with page depth.
+`LIMIT <offset>, <count>` form), which scales linearly with page depth. **`RepeatedStatementAudit`** reads
+`SqlCapturingStatementInspector.executionCounts()` (a per-statement tally the capturer keeps alongside the
+capture set) to catch N+1 statement bursts — a `SELECT` shape captured at least a given threshold number of
+times.
 
 == JPA family
 
