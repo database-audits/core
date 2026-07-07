@@ -195,4 +195,24 @@ class CatalogAuditsIT {
                 .as("Excluding one of the duplicate pair should produce no violations.")
                 .isEmpty();
     }
+
+    @Test
+    void testPrimaryKeyTypeAudit_IntegerPk_ReportedThenEmptyWhenExcluded() {
+        final var audit =
+                new PrimaryKeyTypeAudit(catalogQueries(), fixture.platform());
+        final String narrowPkTable =
+                fixture.expectedIdentifier("narrow_pk_table");
+        final String narrowPkColumn =
+                narrowPkTable + "." + fixture.expectedIdentifier("id");
+
+        assertThat(audit.audit(fixture.schema(), Set.of()))
+                .as("The narrow integer primary key should be reported.")
+                .anySatisfy(violation -> assertThat(violation.description())
+                        .contains(narrowPkTable))
+                .noneSatisfy(violation -> assertThat(violation.description()).contains(
+                        fixture.expectedIdentifier("parent")));
+        assertThat(audit.audit(fixture.schema(), Set.of(narrowPkColumn)))
+                .as("Excluding the narrow primary key column should produce no violations.")
+                .isEmpty();
+    }
 }

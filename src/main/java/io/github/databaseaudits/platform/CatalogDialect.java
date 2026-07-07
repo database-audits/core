@@ -11,7 +11,7 @@ package io.github.databaseaudits.platform;
  * — PostgreSQL's {@code pg_catalog}, MySQL/MariaDB's {@code information_schema.statistics}
  * and {@code key_column_usage}, H2's {@code information_schema}. A new engine's dialect
  * will not compile until it supplies all three, so the compiler enforces coverage the way
- * the old exhaustive {@code switch}es did. The two <em>default</em> methods return the
+ * the old exhaustive {@code switch}es did. The <em>default</em> methods return the
  * standard {@code information_schema} SQL every supported engine shares; an engine with the
  * standard layout inherits them unchanged.
  *
@@ -94,6 +94,34 @@ public interface CatalogDialect {
                   AND  tc.table_schema = ?
                   AND  col.is_nullable = 'YES'
                 ORDER  BY 1, 2, 3
+                """;
+    }
+
+    /**
+     * Returns the SQL that reads every primary key column of a schema with its
+     * declared data type. Standard {@code information_schema}, valid as-is on
+     * PostgreSQL, MySQL, MariaDB, and H2; the join includes {@code table_name}
+     * because constraint names are only unique per table on PostgreSQL and MySQL.
+     *
+     * @return the primary-key-column-types SQL.
+     */
+    default String primaryKeyColumnTypesSql() {
+        return """
+                SELECT kcu.table_name  AS table_name,
+                       kcu.column_name AS column_name,
+                       col.data_type   AS data_type
+                FROM   information_schema.table_constraints tc
+                JOIN   information_schema.key_column_usage kcu
+                  ON   kcu.constraint_schema = tc.constraint_schema
+                 AND   kcu.constraint_name   = tc.constraint_name
+                 AND   kcu.table_name        = tc.table_name
+                JOIN   information_schema.columns col
+                  ON   col.table_schema = kcu.table_schema
+                 AND   col.table_name   = kcu.table_name
+                 AND   col.column_name  = kcu.column_name
+                WHERE  tc.constraint_type = 'PRIMARY KEY'
+                  AND  tc.table_schema = ?
+                ORDER  BY 1, 2
                 """;
     }
 }

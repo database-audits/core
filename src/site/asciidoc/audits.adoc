@@ -1,6 +1,6 @@
 = Audits
 
-Eleven audits organized into three families. Catalog and JPA audits run on every supported database platform;
+Twelve audits organized into three families. Catalog and JPA audits run on every supported database platform;
 runtime audits split into two kinds — plan-based (PostgreSQL 16+ only) and capture-scan (every platform).
 
 Every `audit()` call returns a `List<Finding>` — empty when clean. Each `Finding` is a record
@@ -115,6 +115,28 @@ orders: FOREIGN KEY (customer_id) REFERENCES customers (id) is duplicated by con
 ----
 
 *Fix:* Drop all but one of the duplicate constraints, or exclude one to keep the duplication deliberately.
+
+=== PrimaryKeyTypeAudit
+
+Every primary key should be at least `bigint` wide. A 32-bit (or narrower) integer primary key overflows at
+roughly 2.1 billion rows — trivial to fix at design time, brutal to fix live, since widening a primary key in
+place typically means rewriting the table and every referencing foreign key. Advisory for genuinely small,
+bounded tables. Pass column identifiers in `table.column` format to skip as `excludedColumns`.
+
+[source,java]
+----
+List<Finding> findings = new PrimaryKeyTypeAudit(queries, platform)
+        .audit("my_schema", Set.of());
+----
+
+*Finding format:*
+
+----
+orders.id primary key type integer is narrower than bigint — risks key exhaustion
+----
+
+*Fix:* Migrate the column to `BIGINT` — widening any referencing foreign key columns in the same change, since
+`ForeignKeyTypeMatchAudit` will flag stragglers — or exclude the column if the table is genuinely bounded.
 
 === RedundantIndexAudit
 
