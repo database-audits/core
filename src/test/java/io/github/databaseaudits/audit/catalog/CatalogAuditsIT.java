@@ -215,4 +215,25 @@ class CatalogAuditsIT {
                 .as("Excluding the narrow primary key column should produce no violations.")
                 .isEmpty();
     }
+
+    @Test
+    void testUniqueIndexNotNullAudit_UniqueIndexOnNullableColumn_ReportedThenEmptyWhenExcluded() {
+        final var audit = new UniqueIndexNotNullAudit(catalogQueries(),
+                indexCatalog(), fixture.platform());
+        final String optionalCodeIndex =
+                fixture.expectedIdentifier("uq_optional_code");
+
+        assertThat(audit.audit(fixture.schema(), Set.of()))
+                .as("The UNIQUE index over a nullable column should be reported.")
+                .anySatisfy(violation -> assertThat(violation.description())
+                        .contains(fixture
+                                .expectedIdentifier("optional_code_table"))
+                        .contains(optionalCodeIndex)
+                        .contains(fixture.expectedIdentifier("code")))
+                .noneSatisfy(violation -> assertThat(violation.description()).contains(
+                        fixture.expectedIdentifier("uq_parent_code")));
+        assertThat(audit.audit(fixture.schema(), Set.of(optionalCodeIndex)))
+                .as("Excluding the index should produce no violations.")
+                .isEmpty();
+    }
 }

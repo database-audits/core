@@ -1,6 +1,6 @@
 = Audits
 
-Twelve audits organized into three families. Catalog and JPA audits run on every supported database platform;
+Thirteen audits organized into three families. Catalog and JPA audits run on every supported database platform;
 runtime audits split into two kinds — plan-based (PostgreSQL 16+ only) and capture-scan (every platform).
 
 Every `audit()` call returns a `List<Finding>` — empty when clean. Each `Finding` is a record
@@ -158,6 +158,29 @@ orders.idx_orders_customer is covered by idx_orders_customer_status
 
 *Fix:* Drop the narrower index (the wider one already serves its lookups), or exclude the index name if the
 redundancy is intentional (for example, a collation-specific index).
+
+=== UniqueIndexNotNullAudit
+
+No UNIQUE index should include a nullable column. On every supported platform a UNIQUE index or constraint
+permits any number of rows whose key contains a NULL — so a "unique business key" declared on a nullable column
+silently admits duplicate rows for whichever rows are missing the key. Partial and expression indexes are
+skipped rather than flagged, since partial uniqueness is often deliberate. Pass index names to skip as
+`excludedIndexes`.
+
+[source,java]
+----
+List<Finding> findings = new UniqueIndexNotNullAudit(queries, indexes, platform)
+        .audit("my_schema", Set.of());
+----
+
+*Finding format:*
+
+----
+customers.uq_customers_email is UNIQUE over nullable column(s) [email] — rows with NULLs bypass uniqueness
+----
+
+*Fix:* Make the nullable column `NOT NULL`, use PostgreSQL 15+ `NULLS NOT DISTINCT`, or exclude the index if the
+partial uniqueness is deliberate.
 
 [[runtime]]
 == Runtime audits

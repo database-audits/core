@@ -19,7 +19,8 @@ public sealed interface Finding
         MissingPrimaryKeyFinding, NarrowPrimaryKeyFinding,
         RedundantIndexFinding, SchemaTableMissingFinding,
         SchemaColumnMissingFinding, SchemaColumnTypeMismatchFinding,
-        UnconditionalMutationFinding, PlanIndexFinding {
+        UnconditionalMutationFinding, UniqueIndexNullableColumnFinding,
+        PlanIndexFinding {
     /**
      * Returns the human-readable description of this violation — the exact line
      * the audit reports.
