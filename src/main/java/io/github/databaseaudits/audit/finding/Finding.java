@@ -22,7 +22,8 @@ public sealed interface Finding
         RepeatedStatementFinding, SchemaTableMissingFinding,
         SchemaColumnMissingFinding, SchemaColumnTypeMismatchFinding,
         UnconditionalMutationFinding, UniqueIndexNullableColumnFinding,
-        UnmappedColumnFinding, UnmappedTableFinding, PlanIndexFinding {
+        UnmappedColumnFinding, UnmappedTableFinding, UnusedIndexFinding,
+        PlanIndexFinding {
     /**
      * Returns the human-readable description of this violation — the exact line
      * the audit reports.

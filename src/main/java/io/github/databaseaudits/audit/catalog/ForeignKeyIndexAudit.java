@@ -1,7 +1,6 @@
 package io.github.databaseaudits.audit.catalog;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,9 +88,7 @@ public class ForeignKeyIndexAudit {
      * (null column) never matches.
      */
     boolean covers(final IndexDefinition index, final List<String> fkColumns) {
-        return !index.partial() && index.columns().size() >= fkColumns.size()
-                && new HashSet<>(index.columns().subList(0, fkColumns.size()))
-                        .containsAll(fkColumns);
+        return index.leadingColumnsCover(fkColumns);
     }
 
     private List<ForeignKey> readForeignKeys(final String schema) {

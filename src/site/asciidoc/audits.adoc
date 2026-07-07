@@ -1,6 +1,6 @@
 = Audits
 
-Eighteen audits organized into three families. Catalog and JPA audits run on every supported database platform;
+Nineteen audits organized into three families. Catalog and JPA audits run on every supported database platform;
 runtime audits split into two kinds — plan-based (PostgreSQL 16+ only) and capture-scan (every platform).
 
 Every `audit()` call returns a `List<Finding>` — empty when clean. Each `Finding` is a record
@@ -283,6 +283,36 @@ Nested Loop with inner Seq Scan on 'orders' joining (order_items.order_id = orde
 ----
 
 *Fix:* Add an index on the joined column(s), or exclude the relation or SQL fragment.
+
+==== UnusedIndexAudit
+
+Advisory: every index should be used by at least one captured statement's plan. Every index taxes every write
+and consumes cache/storage; one that no real query uses is pure cost. The inverse of the other plan audits — it
+proves one *index* serves no statement in the whole captured workload, planning each candidate via the natural
+generic plan (no planner penalties) and walking every `Index Name` the plan mentions. An index is never
+reported when it backs a primary key or a unique constraint, when it is partial (a generic plan without bind
+values usually cannot prove a partial index unusable), when its name appears in the collected usage, or when it
+covers a foreign key (an index `ForeignKeyIndexAudit` demands is never reported unused here).
+
+CAUTION: This audit is advisory and workload-dependent. The capture must hold a representative workload, or a
+genuinely used index looks unused. A generic plan also has no real table statistics, so it can miss an index
+the planner would pick under production data's distribution — always confirm against production
+`pg_stat_user_indexes` before dropping an index this audit reports.
+
+[source,java]
+----
+List<Finding> findings = new UnusedIndexAudit(explainer, inspector, indexes, foreignKeys)
+        .audit("my_schema", Set.of("idx_kept_for_admin_report"));
+----
+
+*Finding format:*
+
+----
+orders.idx_orders_legacy_status is used by no captured statement's plan
+----
+
+*Fix:* Drop the index after confirming against production usage statistics, or exclude it (e.g. an index kept
+for a rare admin query outside the captured workload).
 
 [[runtime-capture]]
 === Capture-scan runtime audits (all platforms)

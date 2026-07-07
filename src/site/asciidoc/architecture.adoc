@@ -61,8 +61,8 @@ a dedicated query. It is the shared building block for `DuplicateForeignKeyAudit
 
 == Runtime family
 
-Six audits that inspect the *real SQL Hibernate executed* during the test run, via
-`SqlCapturingStatementInspector`. Three are <<plan-based>> (PostgreSQL 16+ only, via `EXPLAIN`); three are
+Seven audits that inspect the *real SQL Hibernate executed* during the test run, via
+`SqlCapturingStatementInspector`. Four are <<plan-based>> (PostgreSQL 16+ only, via `EXPLAIN`); three are
 <<capture-scan>> (every platform, token-scanning the captured SQL text).
 
 === SQL capture
@@ -82,10 +82,18 @@ generic-plan EXPLAIN only works over PostgreSQL's simple query protocol.
 
 === Template method
 
-**`CapturedSqlPlanAuditTemplate`** is the base class for the three EXPLAIN-based audits. The fixed algorithm
-de-duplicates captured SQL by normalized statement shape, plans each candidate with penalties applied, and
-collects offending nodes. Both vacuous-run guards — empty capture and wholly-unexplainable run — live here.
-Subclasses supply which statements to EXPLAIN, which GUCs to penalize, and how to recognize an offending node.
+**`CapturedSqlPlanAuditTemplate`** is the base class for three of the four EXPLAIN-based audits
+(`WhereClauseIndexAudit`, `OrderByIndexAudit`, `JoinIndexAudit`). The fixed algorithm de-duplicates captured SQL
+by normalized statement shape, plans each candidate with penalties applied, and collects offending nodes. Both
+vacuous-run guards — empty capture and wholly-unexplainable run — live here. Subclasses supply which statements
+to EXPLAIN, which GUCs to penalize, and how to recognize an offending node.
+
+**`UnusedIndexAudit`** is the fourth plan-based audit, and deliberately does *not* extend the template: the
+template emits one finding per _offending statement_, but this audit needs the union of index usage across
+_every_ statement, then a diff against the catalog — the inverse shape. It plans each candidate via the natural
+generic plan (no penalties), collects every `Index Name` the plan mentions, and reports each catalog index
+(from `IndexCatalog`) that is neither justified by a primary key, a unique constraint, being partial, appearing
+in that usage, nor covering a foreign key (via `ForeignKeyCatalog`).
 
 [[capture-scan]]
 === Capture-scan audits (every platform)
