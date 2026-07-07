@@ -59,10 +59,11 @@ lower-cases unquoted aliases while H2 upper-cases them.
 referenced columns paired in constraint order), reusing `CatalogDialect.foreignKeyColumnTypesSql()` rather than
 a dedicated query. It is the shared building block for `DuplicateForeignKeyAudit` (relationship grouping).
 
-== Runtime family (PostgreSQL 16+ only)
+== Runtime family
 
-Four audits that inspect the *real SQL Hibernate executed* during the test run. Three use `EXPLAIN`; one
-token-scans for missing `WHERE` clauses.
+Five audits that inspect the *real SQL Hibernate executed* during the test run, via
+`SqlCapturingStatementInspector`. Three are <<plan-based>> (PostgreSQL 16+ only, via `EXPLAIN`); two are
+<<capture-scan>> (every platform, token-scanning the captured SQL text).
 
 === SQL capture
 
@@ -71,7 +72,8 @@ JDBC `?` placeholders (no bind values) — exactly what `EXPLAIN (GENERIC_PLAN)`
 be both Hibernate's inspector and the one the runtime audits read; see
 link:usage.html#runtime-audits-postgresql-16-only[Usage — Runtime audits] for wiring.
 
-=== Query plan analysis
+[[plan-based]]
+=== Query plan analysis (PostgreSQL 16+ only)
 
 **`QueryPlanExplainer`** runs `EXPLAIN (GENERIC_PLAN, FORMAT JSON)` with chosen planner-penalty settings (for
 example `SET enable_seqscan = off`). A surviving node of the penalized kind proves no index can serve that
@@ -85,8 +87,13 @@ de-duplicates captured SQL by normalized statement shape, plans each candidate w
 collects offending nodes. Both vacuous-run guards — empty capture and wholly-unexplainable run — live here.
 Subclasses supply which statements to EXPLAIN, which GUCs to penalize, and how to recognize an offending node.
 
-**`UnconditionalMutationAudit`** is runtime but uses no EXPLAIN — it scans the capture for `UPDATE`/`DELETE`
-without `WHERE`.
+[[capture-scan]]
+=== Capture-scan audits (every platform)
+
+These two need no `EXPLAIN` and no PostgreSQL-specific technique — they token-scan the normalized captured SQL
+text directly. **`UnconditionalMutationAudit`** scans for `UPDATE`/`DELETE` without `WHERE`.
+**`OffsetPaginationAudit`** scans for `OFFSET`-based pagination (or MySQL/MariaDB's comma
+`LIMIT <offset>, <count>` form), which scales linearly with page depth.
 
 == JPA family
 

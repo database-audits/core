@@ -1,6 +1,6 @@
 = Audits
 
-Thirteen audits organized into three families. Catalog and JPA audits run on every supported database platform;
+Fourteen audits organized into three families. Catalog and JPA audits run on every supported database platform;
 runtime audits split into two kinds — plan-based (PostgreSQL 16+ only) and capture-scan (every platform).
 
 Every `audit()` call returns a `List<Finding>` — empty when clean. Each `Finding` is a record
@@ -310,6 +310,29 @@ delete from session_tokens
 ----
 
 *Fix:* Add a `WHERE` clause to the statement, or pass the normalized statement text as an exclusion.
+
+==== OffsetPaginationAudit
+
+Advisory: no query should page with `OFFSET` (or MySQL/MariaDB's `LIMIT <offset>, <count>` comma form).
+Offset-based pagination — what Spring Data's `Pageable` emits by default — makes the database produce and
+discard every skipped row: page 1000 costs roughly 1000x page 1. Detection is a token scan for `" OFFSET "` or
+the MySQL/MariaDB comma form; a bare `LIMIT ?` with neither is not flagged. Pass SQL fragments to skip as
+`excludedSqlFragments` (matched case-insensitively).
+
+[source,java]
+----
+List<Finding> findings = new OffsetPaginationAudit(inspector)
+        .audit(List.of("from lookup_values"));
+----
+
+*Finding format:* the normalized statement — for example:
+
+----
+select o1_0.id, o1_0.status from orders o1_0 order by o1_0.created_at desc limit ? offset ?
+----
+
+*Fix:* Switch to keyset (seek) pagination (`WHERE (sort_key, id) > (?, ?) ORDER BY sort_key, id LIMIT ?`), or
+exclude the statement if the pagination is deliberately shallow and bounded.
 
 [[jpa]]
 == JPA audit
