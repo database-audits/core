@@ -14,11 +14,12 @@ package io.github.databaseaudits.audit.finding;
  * change everywhere findings are turned into fixes.
  */
 public sealed interface Finding
-        permits ForeignKeyIndexFinding, ForeignKeyNotNullFinding,
-        ForeignKeyTypeMismatchFinding, MissingPrimaryKeyFinding,
-        RedundantIndexFinding, SchemaTableMissingFinding,
-        SchemaColumnMissingFinding, SchemaColumnTypeMismatchFinding,
-        UnconditionalMutationFinding, PlanIndexFinding {
+        permits DuplicateForeignKeyFinding, ForeignKeyIndexFinding,
+        ForeignKeyNotNullFinding, ForeignKeyTypeMismatchFinding,
+        MissingPrimaryKeyFinding, RedundantIndexFinding,
+        SchemaTableMissingFinding, SchemaColumnMissingFinding,
+        SchemaColumnTypeMismatchFinding, UnconditionalMutationFinding,
+        PlanIndexFinding {
     /**
      * Returns the human-readable description of this violation — the exact line
      * the audit reports.
