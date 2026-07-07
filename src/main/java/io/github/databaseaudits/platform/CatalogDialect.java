@@ -124,4 +124,21 @@ public interface CatalogDialect {
                 ORDER  BY 1, 2
                 """;
     }
+
+    /**
+     * Returns the SQL that reads every nullable column of a schema. Standard
+     * {@code information_schema}, valid as-is on PostgreSQL, MySQL, MariaDB, and H2.
+     *
+     * @return the nullable-columns SQL.
+     */
+    default String nullableColumnsSql() {
+        return """
+                SELECT col.table_name  AS table_name,
+                       col.column_name AS column_name
+                FROM   information_schema.columns col
+                WHERE  col.table_schema = ?
+                  AND  col.is_nullable = 'YES'
+                ORDER  BY 1, 2
+                """;
+    }
 }

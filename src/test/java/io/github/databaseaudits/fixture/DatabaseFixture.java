@@ -22,12 +22,13 @@ import io.github.databaseaudits.platform.DatabasePlatform;
  * <p>
  * {@link #createViolationSchema()} plants every auditable catalog violation: a
  * table with no primary key, a table with a narrower-than-bigint primary key,
- * a nullable foreign key column, a leading-prefix redundant index pair, a
- * foreign key column whose declared type differs from its referenced
- * column's, a relationship enforced by two duplicate foreign key constraints,
- * and (where the platform permits one to exist) a foreign key with no
- * supporting index. The container-backed fixtures require Docker and fail
- * rather than skip without it (see {@link DatabaseContainers}).
+ * a nullable foreign key column, a UNIQUE index over a nullable column, a
+ * leading-prefix redundant index pair, a foreign key column whose declared
+ * type differs from its referenced column's, a relationship enforced by two
+ * duplicate foreign key constraints, and (where the platform permits one to
+ * exist) a foreign key with no supporting index. The container-backed
+ * fixtures require Docker and fail rather than skip without it (see
+ * {@link DatabaseContainers}).
  */
 public enum DatabaseFixture {
     /**
@@ -295,6 +296,11 @@ public enum DatabaseFixture {
             // id is the planted narrow-primary-key violation
             statement.execute(
                     "CREATE TABLE narrow_pk_table (id INTEGER PRIMARY KEY, data VARCHAR(10))");
+            // code is the planted UNIQUE-over-nullable-column violation
+            statement.execute(
+                    "CREATE TABLE optional_code_table (id BIGINT PRIMARY KEY, code VARCHAR(10))");
+            statement.execute(
+                    "CREATE UNIQUE INDEX uq_optional_code ON optional_code_table(code)");
             statement.execute(
                     """
                             CREATE TABLE unindexed_fk_child (

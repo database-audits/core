@@ -62,5 +62,10 @@ class CatalogDialectTest {
                 .contains("PRIMARY KEY")
                 .isEqualTo(mysql.primaryKeyColumnTypesSql())
                 .isEqualTo(h2.primaryKeyColumnTypesSql());
+        assertThat(postgresql.nullableColumnsSql())
+                .as("The nullable-columns SQL is the standard information_schema SQL shared by every engine.")
+                .contains("is_nullable")
+                .isEqualTo(mysql.nullableColumnsSql())
+                .isEqualTo(h2.nullableColumnsSql());
     }
 }
