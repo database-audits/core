@@ -41,7 +41,7 @@ which opens one connection, reads `DatabaseMetaData.getDatabaseProductName()`, a
 
 == Catalog family (all platforms)
 
-Six audits that query database metadata — `information_schema` or `pg_catalog` — over plain JDBC and compare
+Seven audits that query database metadata — `information_schema` or `pg_catalog` — over plain JDBC and compare
 it against rules. Results are deterministic regardless of test data; no SQL execution is analyzed.
 
 **`CatalogQueries`** is the minimal JDBC-to-list-of-maps layer. It prepares one parameterized statement per call
