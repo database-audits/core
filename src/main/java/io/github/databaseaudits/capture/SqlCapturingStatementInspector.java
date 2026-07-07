@@ -1,8 +1,11 @@
 package io.github.databaseaudits.capture;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.hibernate.resource.jdbc.spi.StatementInspector;
 
@@ -15,7 +18,10 @@ import org.hibernate.resource.jdbc.spi.StatementInspector;
  * <p>
  * It never mutates the SQL — {@link #inspect(String)} returns its input
  * unchanged. The captured set holds the SQL <em>text</em> with {@code ?}
- * placeholders (no bind values), which is what the EXPLAIN audits need.
+ * placeholders (no bind values), which is what the EXPLAIN audits need. It
+ * also tallies how many times each distinct statement is captured
+ * ({@link #executionCounts()}), which {@code RepeatedStatementAudit} reads to
+ * detect N+1 statement bursts.
  *
  * <h2>Registration — turn capture on across the suite</h2> Capture lives on the
  * instance, so the <em>same instance</em> must be both Hibernate's
@@ -54,10 +60,16 @@ public class SqlCapturingStatementInspector implements StatementInspector {
     /** The distinct SQL statements captured so far. */
     private final Set<String> captured = ConcurrentHashMap.newKeySet();
 
+    /** How many times each distinct statement has been captured so far. */
+    private final Map<String, LongAdder> executionCounts =
+            new ConcurrentHashMap<>();
+
     @Override
     public String inspect(final String sql) {
         if (sql != null && !sql.isBlank()) {
             captured.add(sql);
+            executionCounts.computeIfAbsent(sql, key -> new LongAdder())
+                    .increment();
         }
         return sql; // must return the SQL unchanged
     }
@@ -70,6 +82,21 @@ public class SqlCapturingStatementInspector implements StatementInspector {
      */
     public Set<String> capturedSql() {
         return Set.copyOf(captured);
+    }
+
+    /**
+     * Returns a snapshot of how many times each distinct statement has been
+     * captured so far — one increment per {@link #inspect(String)} call, i.e.
+     * per statement Hibernate prepares. Counts accumulate for this capturer's
+     * whole lifetime; call {@link #clear()} first for a count scoped to one
+     * workload.
+     *
+     * @return An immutable copy of the raw statement text to its capture
+     *         count.
+     */
+    public Map<String, Long> executionCounts() {
+        return executionCounts.entrySet().stream().collect(Collectors
+                .toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().sum()));
     }
 
     /**
@@ -89,11 +116,12 @@ public class SqlCapturingStatementInspector implements StatementInspector {
     }
 
     /**
-     * Clears the capture. Not used by the bundled audits, but handy if a
-     * consumer wants per-test isolation (e.g. capture only one method's SQL) —
-     * call it from a {@code @BeforeEach}.
+     * Clears the capture, including the execution counts. Not used by the
+     * bundled audits, but handy if a consumer wants per-test isolation (e.g.
+     * capture only one method's SQL) — call it from a {@code @BeforeEach}.
      */
     public void clear() {
         captured.clear();
+        executionCounts.clear();
     }
 }
