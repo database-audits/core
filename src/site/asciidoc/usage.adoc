@@ -23,16 +23,19 @@ assertThat(new ForeignKeyIndexAudit(queries, indexes, platform)
         .isEmpty();
 ----
 
-Each `audit()` returns `List<String>` — empty when clean, otherwise human-readable violation messages.
-`DatabasePlatform` supports `H2`, `MARIADB`, `MYSQL`, and `POSTGRESQL`. See
-link:audits.html#catalog[Audits — Catalog] for all catalog audits and their exclusion parameters.
+Each `audit()` returns `List<Finding>` — empty when clean, otherwise one `Finding` per violation, whose
+`description()` is the human-readable line. `DatabasePlatform` supports `H2`, `MARIADB`, `MYSQL`, and
+`POSTGRESQL`. See link:audits.html#catalog[Audits — Catalog] for all catalog audits and their exclusion
+parameters.
 
-== Runtime audits (PostgreSQL 16+ only)
+== Runtime audits
 
-Runtime audits intercept the SQL Hibernate executes and analyze it via `EXPLAIN (GENERIC_PLAN, FORMAT JSON)`.
-They are PostgreSQL-only and fail immediately on any other platform. An `IllegalStateException` from a runtime
-audit indicates a configuration problem — empty capture or missing `preferQueryMode=simple` — not a schema
-violation.
+Runtime audits intercept every SQL statement Hibernate executes via `SqlCapturingStatementInspector`. Most of
+this page covers the *plan-based* audits (PostgreSQL 16+ only), which analyze the captured SQL via
+`EXPLAIN (GENERIC_PLAN, FORMAT JSON)` and fail immediately on any other platform; an `IllegalStateException` from
+one indicates a configuration problem — empty capture or missing `preferQueryMode=simple` — not a schema
+violation. *Capture-scan* audits (e.g. `UnconditionalMutationAudit`) instead scan the captured SQL text directly
+and run on every supported platform — see link:audits.html#runtime-capture[Audits — Capture-scan runtime audits].
 
 === JDBC URL requirement
 
