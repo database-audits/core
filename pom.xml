@@ -10,7 +10,7 @@
   </parent>
 
   <artifactId>database-audits-core</artifactId>
-  <version>3.0.1-SNAPSHOT</version>
+  <version>3.1.0</version>
   <packaging>jar</packaging>
 
   <name>Database Audits Core</name>
@@ -39,7 +39,7 @@
     <connection>scm:git:https://github.com/database-audits/core.git</connection>
     <developerConnection>scm:git:https://github.com/database-audits/core.git</developerConnection>
     <url>https://github.com/database-audits/core</url>
-    <tag>v2.0.0</tag>
+    <tag>v3.1.0</tag>
   </scm>
 
   <dependencies>
